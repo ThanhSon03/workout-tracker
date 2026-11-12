@@ -901,3 +901,10 @@ body.focus-open { overflow: hidden; }
     }
   }
 }
+
+/* ---------- language selector ---------- */
+.lang-field select { min-width: 118px; }
+@media (max-width: 720px) {
+  .lang-field { flex: 1 1 100%; }
+  .lang-field select { width: 100%; }
+}

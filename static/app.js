@@ -1,8 +1,31 @@
 "use strict";
 
 const $ = (sel, root = document) => root.querySelector(sel);
-const MONTHS = Array.from({ length: 12 }, (_, i) => `Tháng ${i + 1}`);
-const DAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+const t = (key, vars) => (window.WT_I18N ? window.WT_I18N.t(key, vars) : key);
+const LOCALE = () => {
+  const lang = window.WT_I18N ? window.WT_I18N.getLanguage() : "vi";
+  return lang === "en" ? "en-US" : lang === "zh" ? "zh-CN" : "vi-VN";
+};
+const monthTitle = (index) => {
+  const name = new Intl.DateTimeFormat(LOCALE(), { month: "long" }).format(new Date(2026, index, 1));
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
+const MONTHS = Array.from({ length: 12 }, (_, i) => monthTitle(i));
+const shortMonth = (month) =>
+  new Intl.DateTimeFormat(LOCALE(), { month: "short" }).format(new Date(2026, month - 1, 1));
+const DAY_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((key) => t(key));
+const GRID_DAY_LABELS = (() => {
+  const lang = window.WT_I18N ? window.WT_I18N.getLanguage() : "vi";
+  if (lang === "en") return ["M", "T", "W", "T", "F", "S", "S"];
+  if (lang === "zh") return ["一", "二", "三", "四", "五", "六", "日"];
+  return DAY_LABELS;
+})();
+const gridWeekLabel = (index) => {
+  const lang = window.WT_I18N ? window.WT_I18N.getLanguage() : "vi";
+  if (lang === "en") return `W${index}`;
+  if (lang === "zh") return `第${index}周`;
+  return t("Tuần {n}", { n: index });
+};
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 const state = { year: new Date().getFullYear(), month: new Date().getMonth() + 1, data: null };
 let logPrefilled = false;
@@ -12,10 +35,12 @@ const esc = (value) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 
-const numFmt = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 1 });
+const numFmt = new Intl.NumberFormat(LOCALE(), { maximumFractionDigits: 1 });
 const fmtNum = (value) => numFmt.format(Number(value) || 0);
 
-const KIND_LABELS = { strength: "Tập tạ", cardio: "Cardio", mobility: "Giãn cơ" };
+const KIND_LABELS = { strength: t("Tập tạ"), cardio: "Cardio", mobility: t("Giãn cơ") };
+const confirmText = (message) =>
+  window.confirm(window.WT_I18N ? window.WT_I18N.translateMessage(message) : message);
 
 function formatPace(minPerKm) {
   const value = Number(minPerKm) || 0;
@@ -61,9 +86,9 @@ function restButtonSeconds(habit) {
 
 function scheduleLabel(weekdays) {
   const days = Array.isArray(weekdays) ? weekdays : ALL_DAYS;
-  if (days.length === 7) return "Hằng ngày";
-  if (days.length === 5 && days.every((day) => day < 5)) return "T2–T6";
-  return days.map((day) => DAY_LABELS[day]).join("·") || "Chưa có lịch";
+  if (days.length === 7) return t("Hằng ngày");
+  if (days.length === 5 && days.every((day) => day < 5)) return t("T2–T6");
+  return days.map((day) => DAY_LABELS[day]).join("·") || t("Chưa có lịch");
 }
 
 
@@ -71,7 +96,10 @@ async function api(path, options) {
   if (window.WTLocal) {
     await window.WTLocal.ready;
     const payload = await window.WTLocal.request(path, options);
-    if (!payload.ok) throw new Error(payload.error || "Lỗi dữ liệu");
+    if (!payload.ok) {
+      const message = payload.error || t("Lỗi dữ liệu");
+      throw new Error(window.WT_I18N ? window.WT_I18N.translateMessage(message) : message);
+    }
     return payload;
   }
   const res = await fetch(path, options);
@@ -79,7 +107,7 @@ async function api(path, options) {
   try {
     payload = await res.json();
   } catch {
-    payload = { ok: false, error: `Phản hồi không hợp lệ (HTTP ${res.status})` };
+    payload = { ok: false, error: t("Phản hồi không hợp lệ (HTTP {status})", { status: res.status }) };
   }
   if (!res.ok || !payload.ok) throw new Error(payload.error || `HTTP ${res.status}`);
   return payload;
@@ -112,12 +140,20 @@ function checkMilestones(d) {
   if (!stats) return;
   const pct = Math.round(stats.overall_pct || 0);
   if (pct >= 100) {
-    fireMilestone(`goal-${d.year}-${d.month}`, `🎉 Hoàn thành 100% tháng ${d.month_name}!`);
+    fireMilestone(
+      `goal-${d.year}-${d.month}`,
+      t("🎉 Hoàn thành 100% tháng {month}!", { month: MONTHS[d.month - 1] })
+    );
   }
   for (const habit of stats.per_habit || []) {
     const streak = habit.streak || 0;
     for (const m of [7, 14, 30, 60]) {
-      if (streak >= m) fireMilestone(`streak-${habit.id}-${m}`, `🏆 Cột mốc streak ${m} ngày cho ${habit.name}!`);
+      if (streak >= m) {
+        fireMilestone(
+          `streak-${habit.id}-${m}`,
+          t("🏆 Cột mốc streak {n} ngày cho {name}!", { n: m, name: habit.name })
+        );
+      }
     }
   }
 }
@@ -125,7 +161,7 @@ function checkMilestones(d) {
 let toastTimer = null;
 function toast(message) {
   const node = $("#toast");
-  node.textContent = message;
+  node.textContent = window.WT_I18N ? window.WT_I18N.translateMessage(message) : message;
   node.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => node.classList.remove("show"), 2200);
@@ -154,8 +190,8 @@ function barChart(items, { labelEvery = 2, height = 170, width = 780 } = {}) {
     const w = Math.max(bw * 0.64, 2);
     const y = pad.t + ih - h;
     const title = item.skipped
-      ? `${item.label}: nghỉ`
-      : `${item.label}: ${item.pct}%${item.deload ? " · deload" : ""}`;
+      ? t("{label}: nghỉ", { label: item.label })
+      : `${item.label}: ${item.pct}%${item.deload ? ` · ${t("deload")}` : ""}`;
     const classes = ["bar"];
     if (item.skipped) classes.push("skipped");
     if (item.deload) classes.push("deload");
@@ -229,9 +265,9 @@ function renderComparison(d) {
   const sign = delta > 0 ? "+" : "";
   el.hidden = false;
   el.innerHTML = `
-    <span class="compare-label">So với ${esc(c.month_name)}/${c.year}</span>
+    <span class="compare-label">${esc(t("So với {month} {year}", { month: MONTHS[c.month - 1], year: c.year }))}</span>
     <span class="compare-value ${cls}">${arrow} ${sign}${delta}%</span>
-    <span class="compare-meta">${c.overall_pct}% · ${c.total_done}/${c.total_possible} lượt</span>`;
+    <span class="compare-meta">${c.overall_pct}% · ${t("{done}/{total} lượt", { done: c.total_done, total: c.total_possible })}</span>`;
 }
 
 function renderDaily(d) {
@@ -242,12 +278,15 @@ function renderDaily(d) {
     skipped: day.skipped,
   }));
   $("#dailyChart").innerHTML = barChart(items, { labelEvery: 2, height: 170, width: 780 });
-  $("#dailyHint").textContent = `${s.total_done}/${s.total_possible} lượt`;
+  $("#dailyHint").textContent = t("{done}/{total} lượt", {
+    done: s.total_done,
+    total: s.total_possible,
+  });
 }
 
 function renderWeekly(d) {
   const items = d.stats.weekly.map((week, index) => ({
-    label: `Tuần ${index + 1}`,
+    label: t("Tuần {n}", { n: index + 1 }),
     pct: week.pct,
     deload: Boolean((d.weeks[index] || {}).deload),
   }));
@@ -277,12 +316,12 @@ function renderGrid(d) {
   const logTitle = (habit, log) => {
     const kind = habitKind(habit);
     if (kind === "cardio" && (log.distance_km || 0) > 0) {
-      let text = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} phút · ${formatPace(log.pace)}`;
+      let text = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} ${t("phút")} · ${formatPace(log.pace)}`;
       if (log.note) text += ` · ${log.note}`;
       return text;
     }
     if (kind === "mobility" && (log.duration_min || 0) > 0) {
-      let text = `${fmtNum(log.duration_min)} phút`;
+      let text = `${fmtNum(log.duration_min)} ${t("phút")}`;
       if (log.note) text += ` · ${log.note}`;
       return text;
     }
@@ -294,19 +333,19 @@ function renderGrid(d) {
   };
 
   let html = "<thead><tr>";
-  html += `<th class="corner" rowspan="3">Bài tập</th>`;
+  html += `<th class="corner" rowspan="3">${esc(t("Bài tập"))}</th>`;
   d.weeks.forEach((week) => {
     html += `<th class="week-head${week.deload ? " is-deload" : ""}" colspan="${week.days.length}">
       <div class="week-head-inner">
-        <span>${esc(week.label)}</span>
-        <button class="deload-toggle${week.deload ? " on" : ""}" type="button" data-week-deload="${week.monday}" title="${week.deload ? "Bỏ đánh dấu deload" : "Đánh dấu tuần này là deload"}" aria-pressed="${Boolean(week.deload)}">${week.deload ? "DELOAD" : "deload"}</button>
+        <span>${esc(gridWeekLabel(week.index))}</span>
+        <button class="deload-toggle${week.deload ? " on" : ""}" type="button" data-week-deload="${week.monday}" title="${week.deload ? t("Bỏ đánh dấu deload") : t("Đánh dấu tuần này là deload")}" aria-pressed="${Boolean(week.deload)}">${week.deload ? "DELOAD" : "deload"}</button>
       </div>
     </th>`;
   });
   html += "</tr><tr>";
   d.weeks.forEach((week) => {
     week.days.forEach((day) => {
-      html += `<th class="dow">${esc(day.dow)}</th>`;
+      html += `<th class="dow">${esc(GRID_DAY_LABELS[(new Date(`${day.day}T00:00:00`).getDay() + 6) % 7])}</th>`;
     });
   });
   html += "</tr><tr>";
@@ -318,11 +357,11 @@ function renderGrid(d) {
   html += "</tr></thead><tbody>";
 
   if (!d.habits.length) {
-    html += `<tr class="empty-row"><td colspan="${totalDays + 1}">Chưa có bài tập. Bấm “+ Bài tập” để bắt đầu.</td></tr>`;
+    html += `<tr class="empty-row"><td colspan="${totalDays + 1}">${esc(t("Chưa có bài tập. Bấm “+ Bài tập” để bắt đầu."))}</td></tr>`;
   }
 
   // Hàng "Ngày nghỉ": đánh dấu cả ngày không tính vào % và không đứt chuỗi.
-  html += `<tr class="rest-row"><td class="habit-name"><span class="emoji">☾</span><span class="label">Ngày nghỉ</span></td>`;
+  html += `<tr class="rest-row"><td class="habit-name"><span class="emoji">☾</span><span class="label">${esc(t("Ngày nghỉ"))}</span></td>`;
   d.weeks.forEach((week) => {
     week.days.forEach((day) => {
       const isSkipped = skips.has(day.day);
@@ -330,11 +369,11 @@ function renderGrid(d) {
       const reason = isSkipped ? skips.get(day.day) : "";
       const title = isSkipped
         ? reason
-          ? `Nghỉ: ${reason}`
-          : "Đã đánh dấu ngày nghỉ"
+          ? t("Nghỉ: {reason}", { reason })
+          : t("Đã đánh dấu ngày nghỉ")
         : isFuture
-          ? "Chưa tới ngày này"
-          : "Đánh dấu ngày nghỉ";
+          ? t("Chưa tới ngày này")
+          : t("Đánh dấu ngày nghỉ");
       html += `<td class="${cellClasses(day.day, week)}"><button class="skip${isSkipped ? " on" : ""}" data-skip="${day.day}" title="${esc(title)}" aria-pressed="${isSkipped}"${isFuture ? " disabled" : ""}>☾</button></td>`;
     });
   });
@@ -344,8 +383,8 @@ function renderGrid(d) {
     const weekdays = Array.isArray(habit.weekdays) ? habit.weekdays : ALL_DAYS;
     const schedule = scheduleLabel(weekdays);
     html += `<tr><td class="habit-name" title="${esc(habit.name)} · ${esc(schedule)}">`;
-    html += `<button class="edit" data-edit="${habit.id}" title="Sửa bài tập" aria-label="Sửa ${esc(habit.name)}">✎</button>`;
-    html += `<button class="del" data-del="${habit.id}" title="Xoá bài tập" aria-label="Xoá ${esc(habit.name)}">×</button>`;
+    html += `<button class="edit" data-edit="${habit.id}" title="${esc(t("Sửa bài tập"))}" aria-label="${esc(t("Sửa {name}", { name: habit.name }))}">✎</button>`;
+    html += `<button class="del" data-del="${habit.id}" title="${esc(t("Xoá bài tập"))}" aria-label="${esc(t("Xoá {name}", { name: habit.name }))}">×</button>`;
     html += `<span class="emoji">${esc(habit.emoji)}</span><span class="label">${esc(habit.name)}</span></td>`;
     d.weeks.forEach((week) => {
       week.days.forEach((day) => {
@@ -361,18 +400,18 @@ function renderGrid(d) {
         if (log) checkClasses.push("logged");
         const classes = [cellClasses(day.day, week), scheduled ? "" : "off"].filter(Boolean).join(" ");
         let title = isSkipped
-          ? "Ngày nghỉ"
+          ? t("Ngày nghỉ")
           : isFuture
-            ? "Chưa tới ngày này"
+            ? t("Chưa tới ngày này")
             : scheduled
               ? ""
-              : "Ngoài lịch — không tính vào %";
+              : t("Ngoài lịch — không tính vào %");
         if (log && !isFuture && !isSkipped) {
           title = logTitle(habitsById.get(habit.id) || habit, log);
-          if (!scheduled) title += " (ngoài lịch)";
+          if (!scheduled) title += ` (${t("Ngoài lịch")})`;
         }
         const titleAttr = title ? ` title="${esc(title)}"` : "";
-        html += `<td class="${classes}"><button class="${checkClasses.join(" ")}" data-habit="${habit.id}" data-day="${day.day}" aria-label="${esc(habit.name)} ngày ${day.num}" aria-pressed="${isDone}"${isFuture || isSkipped ? " disabled" : ""}${titleAttr}></button></td>`;
+        html += `<td class="${classes}"><button class="${checkClasses.join(" ")}" data-habit="${habit.id}" data-day="${day.day}" aria-label="${esc(t("{name} ngày {day}", { name: habit.name, day: day.num }))}" aria-pressed="${isDone}"${isFuture || isSkipped ? " disabled" : ""}${titleAttr}></button></td>`;
       });
     });
     html += "</tr>";
@@ -417,9 +456,12 @@ function renderWorkout(d) {
   const volumeMonth = d.volume_month != null ? d.volume_month : totalVolume;
   $("#logVolume").textContent = `${fmtNum(volumeMonth)} kg`;
   $("#logCount").textContent = logs.length
-    ? `${logs.length} buổi · ${fmtNum(logs.reduce((sum, log) => sum + log.sets, 0))} sets`
-    : "chưa có buổi nào";
-  $("#logsHint").textContent = logs.length ? `${logs.length} buổi trong tháng` : "";
+    ? t("{n} buổi · {sets} sets", {
+        n: logs.length,
+        sets: fmtNum(logs.reduce((sum, log) => sum + log.sets, 0)),
+      })
+    : t("chưa có buổi nào");
+  $("#logsHint").textContent = logs.length ? t("{n} buổi trong tháng", { n: logs.length }) : "";
 
   const names = habitsById;
   const prs = d.prs_by_month || [];
@@ -437,7 +479,7 @@ function renderWorkout(d) {
                 ? `<span class="pr-delta down">▼ ${fmtNum(Math.abs(delta.delta))} kg</span>`
                 : `<span class="pr-delta flat">→ ${fmtNum(delta.delta)} kg</span>`
             : "";
-          return `<span class="pr-chip" title="PR ước tính (Epley) ngày ${esc(pr.day)}">
+          return `<span class="pr-chip" title="${esc(t("PR ước tính (Epley) ngày {day}", { day: pr.day }))}">
             <span>${esc(habit.emoji)} ${esc(habit.name)}</span>
             <strong>~${fmtNum(pr.e1rm)} kg</strong>
             <span class="pr-day">${esc(formatDay(pr.day))}</span>
@@ -445,11 +487,11 @@ function renderWorkout(d) {
           </span>`;
         })
         .join("")
-    : `<span class="pr-empty">Chưa có PR — cần log có mức tạ.</span>`;
+    : `<span class="pr-empty">${esc(t("Chưa có PR — cần log có mức tạ."))}</span>`;
 
   const list = $("#logList");
   if (!logs.length) {
-    list.innerHTML = `<li class="logs-empty">Chưa có buổi tập nào trong tháng này.</li>`;
+    list.innerHTML = `<li class="logs-empty">${esc(t("Chưa có buổi tập nào trong tháng này."))}</li>`;
     return;
   }
   list.innerHTML = logs
@@ -459,10 +501,10 @@ function renderWorkout(d) {
       let detail;
       let total;
       if (kind === "cardio") {
-        detail = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} phút`;
+        detail = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} ${t("phút")}`;
         total = formatPace(log.pace);
       } else if (kind === "mobility") {
-        detail = `${fmtNum(log.duration_min)} phút`;
+        detail = `${fmtNum(log.duration_min)} ${t("phút")}`;
         total = "—";
       } else {
         const load = log.weight > 0 ? `${fmtNum(log.weight)} kg` : "BW";
@@ -473,13 +515,13 @@ function renderWorkout(d) {
       const label = `${habit.name} ${formatDay(log.day)}`;
       const rest = restButtonSeconds(habit);
       return `<li class="log-item">
-        <span class="log-when"><button data-log-edit="${key}" title="Sửa buổi tập">${esc(formatDay(log.day))}</button></span>
+        <span class="log-when"><button data-log-edit="${key}" title="${esc(t("Sửa buổi tập"))}">${esc(formatDay(log.day))}</button></span>
         <span class="log-name">${esc(habit.emoji)} ${esc(habit.name)}</span>
         <span class="log-detail">${detail}</span>
         <span class="log-total">${total}</span>
         ${log.rpe != null ? `<span class="log-rpe">RPE ${fmtNum(log.rpe)}</span>` : ""}
-        <button class="log-rest" data-log-rest="${key}" title="Nghỉ ${rest} giây" aria-label="Nghỉ ${rest} giây sau ${esc(habit.name)}">⏱</button>
-        <button class="log-del" data-log-del="${key}" title="Xoá log (giữ tick)" aria-label="Xoá log ${esc(label)}">×</button>
+        <button class="log-rest" data-log-rest="${key}" title="${esc(t("Nghỉ {n} giây", { n: rest }))}" aria-label="${esc(t("Nghỉ {n} giây sau {name}", { n: rest, name: habit.name }))}">⏱</button>
+        <button class="log-del" data-log-del="${key}" title="${esc(t("Xoá log (giữ tick)"))}" aria-label="${esc(t("Xoá log {name}", { name: label }))}">×</button>
         ${log.note ? `<span class="log-note">${esc(log.note)}</span>` : ""}
       </li>`;
     })
@@ -564,32 +606,37 @@ function renderCardio(d) {
   const chips = [];
   if (hasCardio) {
     const paceText =
-      totals.best_pace > 0 ? ` · pace TB ${formatPace(totals.avg_pace)} · nhanh nhất ${formatPace(totals.best_pace)}` : "";
+      totals.best_pace > 0
+        ? ` · ${t("pace TB {avg} · nhanh nhất {best}", {
+            avg: formatPace(totals.avg_pace),
+            best: formatPace(totals.best_pace),
+          })}`
+        : "";
     chips.push(
-      `<span class="pr-chip cardio-chip"><span>🏃 Cardio tháng</span><strong>${fmtNum(totals.km)} km</strong><span class="pr-day">${fmtNum(totals.minutes)} phút · ${totals.sessions} buổi${paceText}</span></span>`
+      `<span class="pr-chip cardio-chip"><span>${esc(t("Cardio tháng"))}</span><strong>${fmtNum(totals.km)} km</strong><span class="pr-day">${t("{minutes} phút · {n} buổi", { minutes: fmtNum(totals.minutes), n: totals.sessions })}${paceText}</span></span>`
     );
     cardioRows.forEach((row) => {
       const habit = habitsById.get(row.habit_id);
       if (!habit) return;
       chips.push(
-        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtNum(row.km)} km</strong><span class="pr-day">${row.sessions} buổi${row.best_pace > 0 ? ` · nhanh nhất ${formatPace(row.best_pace)}` : ""}</span></span>`
+        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtNum(row.km)} km</strong><span class="pr-day">${t("{n} buổi", { n: row.sessions })}${row.best_pace > 0 ? ` · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}` : ""}</span></span>`
       );
     });
   }
   if (hasMobility) {
     chips.push(
-      `<span class="pr-chip cardio-chip"><span>🧘 Giãn cơ tháng</span><strong>${fmtNum(mobility.minutes)} phút</strong><span class="pr-day">${mobility.sessions} buổi</span></span>`
+      `<span class="pr-chip cardio-chip"><span>${esc(t("Giãn cơ tháng"))}</span><strong>${fmtNum(mobility.minutes)} ${t("phút")}</strong><span class="pr-day">${t("{n} buổi", { n: mobility.sessions })}</span></span>`
     );
     mobilityRows.forEach((row) => {
       const habit = habitsById.get(row.habit_id);
       if (!habit) return;
       chips.push(
-        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtNum(row.minutes)} phút</strong><span class="pr-day">${row.sessions} buổi</span></span>`
+        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtNum(row.minutes)} ${t("phút")}</strong><span class="pr-day">${t("{n} buổi", { n: row.sessions })}</span></span>`
       );
     });
   }
   $("#cardioSummary").innerHTML = chips.join("");
-  $("#cardioHint").textContent = hasCardio ? "km theo tuần" : "";
+  $("#cardioHint").textContent = hasCardio ? t("km theo tuần") : "";
 
   const chartBox = $("#cardioChart");
   if (!hasCardio || totals.km <= 0) {
@@ -617,7 +664,7 @@ function renderCardio(d) {
 function renderAnalytics(d) {
   const list = $("#analyticsList");
   if (!d.habits.length) {
-    list.innerHTML = `<p class="analytics-empty">Chưa có dữ liệu để phân tích.</p>`;
+    list.innerHTML = `<p class="analytics-empty">${esc(t("Chưa có dữ liệu để phân tích."))}</p>`;
     return;
   }
   const habitsById = habitById(d);
@@ -631,10 +678,10 @@ function renderAnalytics(d) {
         let prText = "";
         if (habitKind(full) === "cardio") {
           const row = cardioRows.get(habit.id);
-          if (row) prText = ` · <span class="pr">${fmtNum(row.km)} km · nhanh nhất ${formatPace(row.best_pace)}</span>`;
+          if (row) prText = ` · <span class="pr">${fmtNum(row.km)} km · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}</span>`;
         } else if (habitKind(full) === "mobility") {
           const row = mobilityRows.get(habit.id);
-          if (row) prText = ` · <span class="pr">${fmtNum(row.minutes)} phút giãn cơ</span>`;
+          if (row) prText = ` · <span class="pr">${fmtNum(row.minutes)} ${t("phút giãn cơ")}</span>`;
         } else {
           const pr = (d.prs || []).find((row) => row.habit_id === habit.id);
           prText = pr ? ` · <span class="pr">PR ~${fmtNum(pr.e1rm)} kg</span>` : "";
@@ -644,7 +691,7 @@ function renderAnalytics(d) {
         <span class="name" title="${esc(habit.name)}">${esc(habit.emoji)} ${esc(habit.name)}</span>
         <span class="pct">${Math.round(habit.pct)}%</span>
         <span class="track"><span class="fill" style="width:${habit.pct}%"></span></span>
-        <span class="streak">${esc(scheduleLabel(habit.weekdays))} · Chuỗi hiện tại ${habit.streak} · tốt nhất ${habit.best} ngày${prText}</span>
+        <span class="streak">${esc(scheduleLabel(habit.weekdays))} · ${esc(t("Chuỗi hiện tại {n} · tốt nhất {m} ngày", { n: habit.streak, m: habit.best }))}${prText}</span>
       </div>`;
       }
     )
@@ -658,7 +705,7 @@ function renderWellness(d) {
   const byDay = new Map(d.wellness.map((row) => [row.day, row]));
 
   if (!days.length) {
-    $("#wellnessChart").innerHTML = `<p class="analytics-empty">Chưa có dữ liệu wellness cho tháng này.</p>`;
+    $("#wellnessChart").innerHTML = `<p class="analytics-empty">${esc(t("Chưa có dữ liệu wellness cho tháng này."))}</p>`;
     return;
   }
 
@@ -704,12 +751,12 @@ function renderWellness(d) {
 
   sleepPoints.forEach((point) => {
     parts.push(
-      `<circle class="dot-sleep" cx="${x(point.i).toFixed(1)}" cy="${ySleep(point.v).toFixed(1)}" r="1.8"><title>Ngủ ${point.v}h</title></circle>`
+      `<circle class="dot-sleep" cx="${x(point.i).toFixed(1)}" cy="${ySleep(point.v).toFixed(1)}" r="1.8"><title>${esc(t("Ngủ {n}h", { n: point.v }))}</title></circle>`
     );
   });
   moodPoints.forEach((point) => {
     parts.push(
-      `<circle class="dot-mood" cx="${x(point.i).toFixed(1)}" cy="${yMood(point.v).toFixed(1)}" r="2.8"><title>Tâm trạng ${point.v}/5</title></circle>`
+      `<circle class="dot-mood" cx="${x(point.i).toFixed(1)}" cy="${yMood(point.v).toFixed(1)}" r="2.8"><title>${esc(t("Tâm trạng {n}/5", { n: point.v }))}</title></circle>`
     );
   });
 
@@ -732,7 +779,7 @@ function renderYearHeatmap(d) {
   }
 
   for (let month = 1; month <= 12; month += 1) {
-    cells.push(`<span class="hm-month">T${month}</span>`);
+    cells.push(`<span class="hm-month">${esc(shortMonth(month))}</span>`);
     const last = new Date(h.year, month, 0).getDate();
     for (let day = 1; day <= 31; day += 1) {
       if (day > last) {
@@ -748,23 +795,23 @@ function renderYearHeatmap(d) {
       const todayClass = iso === d.today ? " today" : "";
       const deloadClass = deload ? " dl" : "";
       const title = skipped
-        ? `${day}/${month}: nghỉ`
-        : `${day}/${month}: ${pct}%${deload ? " · deload" : ""}`;
+        ? t("{day}/{month}: nghỉ", { day, month })
+        : `${day}/${month}: ${pct}%${deload ? ` · ${t("deload")}` : ""}`;
       cells.push(`<span class="hm-cell l${level}${todayClass}${deloadClass}" title="${esc(title)}"></span>`);
     }
   }
 
   $("#yearHeatmap").innerHTML = cells.join("");
   const s = h.summary;
-  $("#heatmapHint").textContent = `${h.year} · ${s.overall_pct}% · ${s.counted_days} ngày có tính`;
+  $("#heatmapHint").textContent = `${h.year} · ${s.overall_pct}% · ${t("{n} ngày có tính", { n: s.counted_days })}`;
 }
 
 function renderNotes(d) {
   const list = $("#notesList");
   const notes = d.notes || [];
-  $("#notesHint").textContent = notes.length ? `${notes.length} ghi chú` : "";
+  $("#notesHint").textContent = notes.length ? t("{n} ghi chú", { n: notes.length }) : "";
   if (!notes.length) {
-    list.innerHTML = `<li class="notes-empty">Chưa có ghi chú nào trong tháng này.</li>`;
+    list.innerHTML = `<li class="notes-empty">${esc(t("Chưa có ghi chú nào trong tháng này."))}</li>`;
     return;
   }
   list.innerHTML = notes
@@ -773,9 +820,9 @@ function renderNotes(d) {
     .map(
       (note) => `
       <li class="note-item">
-        <button class="note-day" data-note-edit="${note.day}" title="Sửa ghi chú">${esc(formatDay(note.day))}</button>
+        <button class="note-day" data-note-edit="${note.day}" title="${esc(t("Sửa ghi chú"))}">${esc(formatDay(note.day))}</button>
         <span class="note-body">${esc(note.text)}</span>
-        <button class="note-del" data-note-del="${note.day}" title="Xoá ghi chú" aria-label="Xoá ghi chú ngày ${esc(formatDay(note.day))}">×</button>
+        <button class="note-del" data-note-del="${note.day}" title="${esc(t("Xoá ghi chú"))}" aria-label="${esc(t("Xoá ghi chú ngày {day}", { day: formatDay(note.day) }))}">×</button>
       </li>`
     )
     .join("");
@@ -797,10 +844,10 @@ function renderBackups(d) {
   const list = $("#backupList");
   const backups = d.backups || [];
   $("#backupHint").textContent = backups.length
-    ? `${backups.length} bản · giữ tối đa 14`
-    : "chưa có bản nào";
+    ? t("{n} bản · giữ tối đa 14", { n: backups.length })
+    : t("chưa có bản nào");
   if (!backups.length) {
-    list.innerHTML = `<li class="backup-empty">Chưa có bản sao lưu. App sẽ tự tạo ở lần mở tiếp theo.</li>`;
+    list.innerHTML = `<li class="backup-empty">${esc(t("Chưa có bản sao lưu. App sẽ tự tạo ở lần mở tiếp theo."))}</li>`;
     return;
   }
   list.innerHTML = backups
@@ -808,7 +855,7 @@ function renderBackups(d) {
       (row) => `<li class="backup-item">
         <span class="backup-time">${esc(formatBackupName(row.name))}</span>
         <span class="backup-size">${formatBytes(row.size)}</span>
-        <button class="btn ghost" type="button" data-backup-restore="${esc(row.name)}">Khôi phục</button>
+        <button class="btn ghost" type="button" data-backup-restore="${esc(row.name)}">${esc(t("Khôi phục"))}</button>
       </li>`
     )
     .join("");
@@ -826,18 +873,18 @@ function renderTodayHint(d) {
   const todayRow = d.stats.daily.find((day) => day.day === d.today);
   let text;
   if (todayRow) {
-    text = `Hôm nay: ${todayRow.done}/${todayRow.total} bài tập`;
+    text = t("Hôm nay: {done}/{total} bài tập", { done: todayRow.done, total: todayRow.total });
   } else {
-    text = d.month_name;
+    text = MONTHS[d.month - 1];
   }
-  if (d.today_week && d.today_week.deload) text += " · tuần deload";
+  if (d.today_week && d.today_week.deload) text += ` · ${t("tuần deload")}`;
   $("#todayHint").textContent = text;
 }
 
 function renderRecovery(d) {
   const rec = d.recovery || { action: "normal", reasons: [] };
   const action = ["normal", "light", "deload"].includes(rec.action) ? rec.action : "normal";
-  const labels = { normal: "TỐT", light: "NHẸ", deload: "DELOAD" };
+  const labels = { normal: t("TỐT"), light: t("NHẸ"), deload: "DELOAD" };
   const el = $("#recoveryAction");
   const reasons = $("#recoveryReasons");
   const hint = $("#recoveryHint");
@@ -845,10 +892,16 @@ function renderRecovery(d) {
   el.className = `recovery-action ${action}`;
   const reasonList = Array.isArray(rec.reasons) ? rec.reasons.slice() : [];
   if (!reasonList.length) {
-    reasonList.push(action === "normal" ? "Thị trường phục hồi tốt — tiếp tục kế hoạch bình thường." : "Không có dấu hiệu cần thay đổi.");
+    reasonList.push(
+      action === "normal"
+        ? t("Thị trường phục hồi tốt — tiếp tục kế hoạch bình thường.")
+        : t("Không có dấu hiệu cần thay đổi.")
+    );
   }
-  reasons.innerHTML = reasonList.map((r) => `<li>${esc(r)}</li>`).join("");
-  hint.textContent = rec.log ? `Sau buổi: ${esc(formatDay(rec.log.day))}` : "";
+  reasons.innerHTML = reasonList
+    .map((r) => `<li>${esc(window.WT_I18N ? window.WT_I18N.translateMessage(r) : r)}</li>`)
+    .join("");
+  hint.textContent = rec.log ? t("Sau buổi: {day}", { day: formatDay(rec.log.day) }) : "";
 }
 
 /* ---------------- giáo án (routine) & deload ---------------- */
@@ -859,7 +912,7 @@ function formatTime(iso) {
 
 function routineScheduleLabel(weekdays) {
   const days = Array.isArray(weekdays) ? weekdays : [];
-  return days.length ? scheduleLabel(days) : "Tự do";
+  return days.length ? scheduleLabel(days) : t("Tự do");
 }
 
 function targetLabel(item) {
@@ -870,9 +923,9 @@ function targetLabel(item) {
 
 function suggestionLabel(item) {
   const suggestion = item.suggestion;
-  if (!suggestion) return (item.kind || "strength") === "strength" ? "chưa có log" : "";
+  if (!suggestion) return (item.kind || "strength") === "strength" ? t("chưa có log") : "";
   const deload = String(suggestion.note || "").toLowerCase().includes("deload");
-  return `→ ${fmtNum(suggestion.weight)} kg × ${suggestion.reps}${deload ? " · deload" : ""}`;
+  return `→ ${fmtNum(suggestion.weight)} kg × ${suggestion.reps}${deload ? ` · ${t("deload")}` : ""}`;
 }
 
 function renderDeloadBanner(d) {
@@ -882,8 +935,8 @@ function renderDeloadBanner(d) {
     banner.hidden = false;
     banner.className = "deload-banner on";
     banner.innerHTML = `
-      <span class="deload-text">🪫 Tuần này là <strong>deload</strong> — tập nhẹ hơn, giữ kỹ thuật và để cơ thể hồi phục.</span>
-      <button class="btn ghost" type="button" data-deload-off="${todayWeek.week_start}">Bỏ deload</button>`;
+      <span class="deload-text">${t("🪫 Tuần này là <strong>deload</strong> — tập nhẹ hơn, giữ kỹ thuật và để cơ thể hồi phục.")}</span>
+      <button class="btn ghost" type="button" data-deload-off="${todayWeek.week_start}">${esc(t("Bỏ deload"))}</button>`;
     return;
   }
   const suggestion = d.deload_suggestion;
@@ -896,8 +949,8 @@ function renderDeloadBanner(d) {
   banner.hidden = false;
   banner.className = "deload-banner";
   banner.innerHTML = `
-    <span class="deload-text">🪫 <strong>Nên deload tuần này</strong>${reasons.length ? ` · ${esc(reasons.join(" · "))}` : ""}</span>
-    <button class="btn" type="button" data-deload-week="${todayWeek.week_start}">Đánh dấu deload</button>`;
+    <span class="deload-text">${t("🪫 <strong>Nên deload tuần này</strong>")}${reasons.length ? ` · ${esc(reasons.map((r) => (window.WT_I18N ? window.WT_I18N.translateMessage(r) : r)).join(" · "))}` : ""}</span>
+    <button class="btn" type="button" data-deload-week="${todayWeek.week_start}">${esc(t("Đánh dấu deload"))}</button>`;
 }
 
 function sessionOf(routine) {
@@ -925,7 +978,7 @@ async function finishSession(routine, session) {
   if (!routine || !session) return false;
   const total = Number(session.total) || (routine.items || []).length;
   const done = (session.done_habit_ids || []).length;
-  if (done < total && !confirm(`Còn ${total - done} bài chưa tick. Vẫn kết thúc buổi?`)) {
+  if (done < total && !confirmText(t("Còn {n} bài chưa tick. Vẫn kết thúc buổi?", { n: total - done }))) {
     return false;
   }
   await post("/api/sessions/finish", { routine_id: routine.id, day: session.day });
@@ -933,7 +986,13 @@ async function finishSession(routine, session) {
   focusRoutineId = null;
   const minutes = sessionDurationMin(session);
   toast(
-    `Đã kết thúc buổi · ${done}/${total} bài${minutes ? ` · ${minutes} phút` : ""}`
+    minutes
+      ? t("Đã kết thúc buổi · {done}/{total} bài · {minutes} phút", {
+          done,
+          total,
+          minutes,
+        })
+      : t("Đã kết thúc buổi · {done}/{total} bài", { done, total })
   );
   await load();
   return true;
@@ -941,12 +1000,12 @@ async function finishSession(routine, session) {
 
 async function cancelSession(routine, session) {
   if (!routine || !session) return false;
-  const when = session.day === state.data?.today ? "hôm nay" : `ngày ${formatDay(session.day)}`;
-  if (!confirm(`Huỷ buổi tập ${when}? Các bài đã tick vẫn được giữ.`)) return false;
+  const when = session.day === state.data?.today ? t("hôm nay") : t("ngày {day}", { day: formatDay(session.day) });
+  if (!confirmText(t("Huỷ buổi tập {when}? Các bài đã tick vẫn được giữ.", { when }))) return false;
   await post("/api/sessions/delete", { routine_id: routine.id, day: session.day });
   focusOpen = false;
   focusRoutineId = null;
-  toast("Đã huỷ buổi tập");
+  toast(t("Đã huỷ buổi tập"));
   await load();
   return true;
 }
@@ -955,11 +1014,11 @@ function renderRoutines(d) {
   const list = $("#routineList");
   const routines = d.routines || [];
   $("#routinesHint").textContent = routines.length
-    ? `${routines.length} giáo án`
-    : "chưa có giáo án nào";
+    ? t("{n} giáo án", { n: routines.length })
+    : t("chưa có giáo án nào");
   renderDeloadBanner(d);
   if (!routines.length) {
-    list.innerHTML = `<p class="routine-empty">Chưa có giáo án. Bấm “+ Giáo án” để tạo buổi tập mẫu (Push / Pull / Legs…), rồi bắt đầu tập theo danh sách.</p>`;
+    list.innerHTML = `<p class="routine-empty">${esc(t("Chưa có giáo án. Bấm “+ Giáo án” để tạo buổi tập mẫu (Push / Pull / Legs…), rồi bắt đầu tập theo danh sách."))}</p>`;
     return;
   }
   const todayDow = (new Date(`${d.today}T00:00:00`).getDay() + 6) % 7;
@@ -979,12 +1038,12 @@ function routineCard(routine, d, todayDow) {
 
   const badges = [];
   if (scheduled && !active && !finishedToday) {
-    badges.push(`<span class="routine-badge today">Hôm nay</span>`);
+    badges.push(`<span class="routine-badge today">${esc(t("Hôm nay"))}</span>`);
   }
-  if (finishedToday) badges.push(`<span class="routine-badge done">Xong hôm nay</span>`);
+  if (finishedToday) badges.push(`<span class="routine-badge done">${esc(t("Xong hôm nay"))}</span>`);
   if (active && session.day !== d.today) {
     badges.push(
-      `<span class="routine-badge previous">Buổi ${esc(formatDay(session.day))} chưa xong</span>`
+      `<span class="routine-badge previous">${esc(t("Buổi {day} chưa xong", { day: formatDay(session.day) }))}</span>`
     );
   }
 
@@ -994,8 +1053,8 @@ function routineCard(routine, d, todayDow) {
       <span class="hint">${esc(routineScheduleLabel(routine.weekdays))}</span>
       ${badges.join("")}
       <span class="routine-head-actions">
-        <button class="edit" type="button" data-edit-routine="${routine.id}" title="Sửa giáo án" aria-label="Sửa ${esc(routine.name)}">✎</button>
-        <button class="del" type="button" data-del-routine="${routine.id}" title="Xoá giáo án" aria-label="Xoá ${esc(routine.name)}">×</button>
+        <button class="edit" type="button" data-edit-routine="${routine.id}" title="${esc(t("Sửa giáo án"))}" aria-label="${esc(t("Sửa {name}", { name: routine.name }))}">✎</button>
+        <button class="del" type="button" data-del-routine="${routine.id}" title="${esc(t("Xoá giáo án"))}" aria-label="${esc(t("Xoá {name}", { name: routine.name }))}">×</button>
       </span>
     </div>
     ${active
@@ -1016,9 +1075,9 @@ function itemsBody(routine, items, d, finished, session) {
       const target =
         (item.kind || "strength") === "strength"
           ? `<span class="ri-target">
-               <input type="number" min="1" max="20" step="1" value="${item.target_sets}" data-ri-field="sets" data-ri-item="${item.id}" aria-label="Sets mục tiêu ${esc(item.name)}" />
+               <input type="number" min="1" max="20" step="1" value="${item.target_sets}" data-ri-field="sets" data-ri-item="${item.id}" aria-label="${esc(t("Sets mục tiêu {name}", { name: item.name }))}" />
                <span class="ri-x">×</span>
-               <input type="number" min="1" max="100" step="1" value="${item.target_reps}" data-ri-field="reps" data-ri-item="${item.id}" aria-label="Reps mục tiêu ${esc(item.name)}" />
+               <input type="number" min="1" max="100" step="1" value="${item.target_reps}" data-ri-field="reps" data-ri-item="${item.id}" aria-label="${esc(t("Reps mục tiêu {name}", { name: item.name }))}" />
              </span>`
           : `<span class="ri-kind">${esc(KIND_LABELS[item.kind] || "")}</span>`;
       return `<li class="ri-row">
@@ -1026,9 +1085,9 @@ function itemsBody(routine, items, d, finished, session) {
         ${target}
         <span class="ri-suggest">${esc(suggestionLabel(item))}</span>
         <span class="ri-actions">
-          <button type="button" data-ri-move="up" data-ri-item="${item.id}" title="Chuyển lên" aria-label="Chuyển ${esc(item.name)} lên">↑</button>
-          <button type="button" data-ri-move="down" data-ri-item="${item.id}" title="Chuyển xuống" aria-label="Chuyển ${esc(item.name)} xuống">↓</button>
-          <button type="button" data-ri-remove="${item.id}" title="Bỏ khỏi giáo án" aria-label="Bỏ ${esc(item.name)} khỏi giáo án">×</button>
+          <button type="button" data-ri-move="up" data-ri-item="${item.id}" title="${esc(t("Chuyển lên"))}" aria-label="${esc(t("Chuyển {name} lên", { name: item.name }))}">↑</button>
+          <button type="button" data-ri-move="down" data-ri-item="${item.id}" title="${esc(t("Chuyển xuống"))}" aria-label="${esc(t("Chuyển {name} xuống", { name: item.name }))}">↓</button>
+          <button type="button" data-ri-remove="${item.id}" title="${esc(t("Bỏ khỏi giáo án"))}" aria-label="${esc(t("Bỏ {name} khỏi giáo án", { name: item.name }))}">×</button>
         </span>
       </li>`;
     })
@@ -1036,46 +1095,50 @@ function itemsBody(routine, items, d, finished, session) {
 
   const empty = items.length
     ? ""
-    : `<li class="ri-empty">Chưa có bài nào — chọn bài bên dưới hoặc bấm “+ Bài mới”.</li>`;
+    : `<li class="ri-empty">${esc(t("Chưa có bài nào — chọn bài bên dưới hoặc bấm “+ Bài mới”."))}</li>`;
   const last = routine.last_session && routine.last_session.total > 0
-    ? `<span class="hint">Buổi gần nhất ${esc(formatDay(routine.last_session.day))}: ${routine.last_session.done}/${routine.last_session.total} bài</span>`
+    ? `<span class="hint">${esc(t("Buổi gần nhất {day}: {done}/{total} bài", {
+        day: formatDay(routine.last_session.day),
+        done: routine.last_session.done,
+        total: routine.last_session.total,
+      }))}</span>`
     : "";
   const noHabits = habits.length === 0;
   const addPlaceholder = noHabits
-    ? "— chưa có bài tập —"
-    : "— đã thêm hết bài —";
+    ? t("— chưa có bài tập —")
+    : t("— đã thêm hết bài —");
   const callout = noHabits
-    ? `<p class="routine-callout">Chưa có bài tập nào trong app. Tạo bài đầu tiên ngay bên dưới — bài mới sẽ được thêm luôn vào giáo án này.</p>`
+    ? `<p class="routine-callout">${esc(t("Chưa có bài tập nào trong app. Tạo bài đầu tiên ngay bên dưới — bài mới sẽ được thêm luôn vào giáo án này."))}</p>`
     : "";
 
   return `
     ${callout}
     <ul class="routine-items">${empty}${rows}</ul>
     <form class="ri-add" data-ri-add="${routine.id}">
-      <select class="ri-add-habit" aria-label="Thêm bài tập vào ${esc(routine.name)}"${habitOptions ? "" : " disabled"}>
+      <select class="ri-add-habit" aria-label="${esc(t("Thêm bài tập vào {name}", { name: routine.name }))}"${habitOptions ? "" : " disabled"}>
         ${habitOptions || `<option value="">${addPlaceholder}</option>`}
       </select>
-      <input class="ri-add-sets" type="number" min="1" max="20" value="3" aria-label="Sets mục tiêu" />
+      <input class="ri-add-sets" type="number" min="1" max="20" value="3" aria-label="${esc(t("Sets mục tiêu"))}" />
       <span class="ri-x">×</span>
-      <input class="ri-add-reps" type="number" min="1" max="100" value="8" aria-label="Reps mục tiêu" />
-      <button class="btn ghost" type="submit"${habitOptions ? "" : " disabled"}>+ Bài</button>
-      <button class="btn ghost" type="button" data-ri-new-toggle="${routine.id}">+ Bài mới</button>
+      <input class="ri-add-reps" type="number" min="1" max="100" value="8" aria-label="${esc(t("Reps mục tiêu"))}" />
+      <button class="btn ghost" type="submit"${habitOptions ? "" : " disabled"}>${esc(t("+ Bài"))}</button>
+      <button class="btn ghost" type="button" data-ri-new-toggle="${routine.id}">${esc(t("+ Bài mới"))}</button>
     </form>
     <form class="ri-new" data-ri-new="${routine.id}"${noHabits ? "" : " hidden"}>
-      <input class="ri-new-name" maxlength="80" placeholder="Tên bài mới (vd: Push-up)" aria-label="Tên bài tập mới" required />
-      <select class="ri-new-kind" aria-label="Loại bài tập">
-        <option value="strength">Tập tạ</option>
+      <input class="ri-new-name" maxlength="80" data-i18n-placeholder="Tên bài mới (vd: Push-up)" placeholder="${esc(t("Tên bài mới (vd: Push-up)"))}" aria-label="${esc(t("Tên bài tập mới"))}" required />
+      <select class="ri-new-kind" aria-label="${esc(t("Loại bài tập"))}">
+        <option value="strength">${esc(t("Tập tạ"))}</option>
         <option value="cardio">Cardio</option>
-        <option value="mobility">Giãn cơ</option>
+        <option value="mobility">${esc(t("Giãn cơ"))}</option>
       </select>
-      <input class="ri-new-sets" type="number" min="1" max="20" value="3" aria-label="Sets mục tiêu" />
+      <input class="ri-new-sets" type="number" min="1" max="20" value="3" aria-label="${esc(t("Sets mục tiêu"))}" />
       <span class="ri-x">×</span>
-      <input class="ri-new-reps" type="number" min="1" max="100" value="8" aria-label="Reps mục tiêu" />
-      <button class="btn ghost" type="submit">Tạo &amp; thêm</button>
-      <button class="btn ghost" type="button" data-ri-new-cancel>Tắt</button>
+      <input class="ri-new-reps" type="number" min="1" max="100" value="8" aria-label="${esc(t("Reps mục tiêu"))}" />
+      <button class="btn ghost" type="submit">${esc(t("Tạo & thêm"))}</button>
+      <button class="btn ghost" type="button" data-ri-new-cancel>${esc(t("Tắt"))}</button>
     </form>
     <div class="routine-actions">
-      <button class="btn" type="button" data-start-routine="${routine.id}"${items.length ? "" : ` disabled title="Thêm bài tập vào giáo án trước"`}>${finished ? "Tập lại" : "Bắt đầu"}</button>
+      <button class="btn" type="button" data-start-routine="${routine.id}"${items.length ? "" : ` disabled title="${esc(t("Thêm bài tập vào giáo án trước"))}"`}>${finished ? esc(t("Tập lại")) : esc(t("Bắt đầu"))}</button>
       ${last}
     </div>`;
 }
@@ -1092,27 +1155,27 @@ function sessionBody(routine, items, session, d) {
       const done = doneSet.has(`${item.habit_id}|${session.day}`);
       const rest = restButtonSeconds(item);
       return `<li class="session-item${done ? " done" : ""}">
-        <button class="session-check" type="button" data-session-toggle="${item.habit_id}" data-session-day="${session.day}" aria-pressed="${done}" aria-label="${done ? "Bỏ tick" : "Tick"} ${esc(item.name)}">${done ? "✓" : ""}</button>
+        <button class="session-check" type="button" data-session-toggle="${item.habit_id}" data-session-day="${session.day}" aria-pressed="${done}" aria-label="${esc(`${done ? t("Bỏ tick") : t("Tick")} ${item.name}`)}">${done ? "✓" : ""}</button>
         <span class="ri-name">${esc(item.emoji)} ${esc(item.name)}</span>
         <span class="hint">${esc(targetLabel(item))}</span>
         <span class="ri-suggest">${esc(suggestionLabel(item))}</span>
-        <button class="session-rest" type="button" data-session-rest="${rest}" data-rest-label="${esc(item.name)}" title="Nghỉ ${rest} giây" aria-label="Nghỉ ${rest} giây">⏱</button>
-        <button class="session-log" type="button" data-session-log="${item.habit_id}" data-session-day="${session.day}" title="Ghi chi tiết bài này" aria-label="Log ${esc(item.name)}">Log</button>
+        <button class="session-rest" type="button" data-session-rest="${rest}" data-rest-label="${esc(item.name)}" title="${esc(t("Nghỉ {n} giây", { n: rest }))}" aria-label="${esc(t("Nghỉ {n} giây", { n: rest }))}">⏱</button>
+        <button class="session-log" type="button" data-session-log="${item.habit_id}" data-session-day="${session.day}" title="${esc(t("Ghi chi tiết bài này"))}" aria-label="${esc(t("Log {name}", { name: item.name }))}">${esc(t("Log"))}</button>
       </li>`;
     })
     .join("");
 
   return `
     <div class="session-head">
-      <span class="session-live">● Đang tập</span>
-      <span class="hint">${session.day !== d.today ? `Buổi ${esc(formatDay(session.day))} · ` : ""}Bắt đầu ${esc(formatTime(session.started_at))}</span>
-      <span class="session-count">${doneCount}/${items.length} bài</span>
+      <span class="session-live">${esc(t("● Đang tập"))}</span>
+      <span class="hint">${session.day !== d.today ? `${esc(t("Buổi {day} · ", { day: formatDay(session.day) }))}` : ""}${esc(t("Bắt đầu {time}", { time: formatTime(session.started_at) }))}</span>
+      <span class="session-count">${esc(t("{done}/{total} bài", { done: doneCount, total: items.length }))}</span>
     </div>
     <div class="progress-track"><span style="width:${pct}%"></span></div>
     <ul class="session-list">${rows}</ul>
     <div class="routine-actions">
-      <button class="btn${allDone ? " complete" : ""}" type="button" data-finish-routine="${routine.id}" data-session-day="${session.day}">${allDone ? "Kết thúc buổi ✓" : "Kết thúc buổi"}</button>
-      <button class="btn ghost" type="button" data-cancel-session="${routine.id}" data-session-day="${session.day}">Huỷ</button>
+      <button class="btn${allDone ? " complete" : ""}" type="button" data-finish-routine="${routine.id}" data-session-day="${session.day}">${esc(allDone ? t("Kết thúc buổi ✓") : t("Kết thúc buổi"))}</button>
+      <button class="btn ghost" type="button" data-cancel-session="${routine.id}" data-session-day="${session.day}">${esc(t("Huỷ"))}</button>
     </div>`;
 }
 
@@ -1203,14 +1266,14 @@ function focusRow(item, session) {
   const suggestion = suggestionLabel(item);
   const rest = restButtonSeconds(item);
   return `<li class="focus-item${done ? " done" : ""}">
-    <button class="focus-check" type="button" data-focus-toggle="${item.habit_id}" data-session-day="${session.day}" aria-pressed="${done}" aria-label="${done ? "Bỏ tick" : "Tick"} ${esc(item.name)}">${done ? "✓" : ""}</button>
+    <button class="focus-check" type="button" data-focus-toggle="${item.habit_id}" data-session-day="${session.day}" aria-pressed="${done}" aria-label="${esc(`${done ? t("Bỏ tick") : t("Tick")} ${item.name}`)}">${done ? "✓" : ""}</button>
     <div class="focus-item-main">
       <span class="focus-item-name">${esc(item.emoji)} ${esc(item.name)}</span>
       <span class="focus-item-meta">${esc(targetLabel(item))}${suggestion ? ` · ${esc(suggestion)}` : ""}</span>
     </div>
     <div class="focus-item-actions">
-      <button class="focus-mini" type="button" data-rest-start="${rest}" data-rest-label="${esc(item.name)}" title="Nghỉ ${rest} giây" aria-label="Nghỉ ${rest} giây">⏱</button>
-      <button class="focus-mini" type="button" data-focus-log="${item.habit_id}" data-session-day="${session.day}" title="Ghi chi tiết bài này" aria-label="Log ${esc(item.name)}">Log</button>
+      <button class="focus-mini" type="button" data-rest-start="${rest}" data-rest-label="${esc(item.name)}" title="${esc(t("Nghỉ {n} giây", { n: rest }))}" aria-label="${esc(t("Nghỉ {n} giây", { n: rest }))}">⏱</button>
+      <button class="focus-mini" type="button" data-focus-log="${item.habit_id}" data-session-day="${session.day}" title="${esc(t("Ghi chi tiết bài này"))}" aria-label="${esc(t("Log {name}", { name: item.name }))}">${esc(t("Log"))}</button>
     </div>
   </li>`;
 }
@@ -1242,16 +1305,16 @@ function renderFocusMode(d) {
 
   $("#focusEmoji").textContent = routine.emoji || "🏋️";
   $("#focusName").textContent = routine.name;
-  $("#focusCount").textContent = `${doneCount}/${items.length} bài`;
+  $("#focusCount").textContent = t("{done}/{total} bài", { done: doneCount, total: items.length });
   const focusDay = $("#focusDay");
   if (focusDay) {
     focusDay.textContent =
-      session.day !== d.today ? ` · buổi ${formatDay(session.day)}` : "";
+      session.day !== d.today ? ` · ${t("buổi {day}", { day: formatDay(session.day) })}` : "";
   }
   $("#focusProgress").style.width = `${pct}%`;
   $("#focusList").innerHTML = items.length
     ? items.map((item) => focusRow(item, session)).join("")
-    : `<li class="focus-empty">Giáo án chưa có bài nào.</li>`;
+    : `<li class="focus-empty">${esc(t("Giáo án chưa có bài nào."))}</li>`;
 
   const chips = $("#focusChips");
   chips.hidden = actives.length < 2;
@@ -1326,7 +1389,7 @@ function initFocusMode() {
         const result = await post("/api/toggle", { habit_id: habitId, day });
         const habit = habitById(state.data).get(habitId);
         const seconds = result.done ? startHabitRest(habit) : 0;
-        if (seconds) toast(`Nghỉ ${seconds} giây · ${habit.name}`);
+        if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
         await load();
         const fresh = focusedRoutine(state.data || {});
         const freshSession = sessionOf(fresh || {});
@@ -1434,7 +1497,7 @@ function initGrid() {
           toast("Đã bỏ ngày nghỉ");
         } else {
           const reason = window.prompt(
-            `Lý do nghỉ ngày ${day}? (bỏ trống nếu không cần)`,
+            t("Lý do nghỉ ngày {day}? (bỏ trống nếu không cần)", { day }),
             ""
           );
           if (reason === null) return;
@@ -1477,7 +1540,7 @@ function initGrid() {
     const remove = event.target.closest("[data-del]");
     if (remove) {
       const habitId = Number(remove.dataset.del);
-      if (!confirm("Xoá bài tập này và toàn bộ lịch sử của nó?")) return;
+      if (!confirmText(t("Xoá bài tập này và toàn bộ lịch sử của nó?"))) return;
       try {
         await post("/api/habits/delete", { id: habitId });
         toast("Đã xoá bài tập");
@@ -1506,7 +1569,7 @@ function openHabitForm(habit) {
   $("#habitKind").value = habit ? habitKind(habit) : "strength";
   $("#habitRest").value = habit ? habitRestSeconds(habit) : REST_DEFAULT;
   renderWeekdayPicker($("#habitDays"), habit ? habit.weekdays : ALL_DAYS);
-  $("#habitSubmit").textContent = habit ? "Lưu" : "Thêm";
+  $("#habitSubmit").textContent = habit ? t("Lưu") : t("Thêm");
   const form = $("#addHabitForm");
   form.hidden = false;
   $("#habitName").focus();
@@ -1574,7 +1637,7 @@ function openRoutineForm(routine) {
     $("#routineDays"),
     routine && Array.isArray(routine.weekdays) ? routine.weekdays : []
   );
-  $("#routineSubmit").textContent = routine ? "Lưu" : "Tạo";
+  $("#routineSubmit").textContent = routine ? t("Lưu") : t("Tạo");
   const form = $("#routineForm");
   form.hidden = false;
   $("#routineName").focus();
@@ -1601,7 +1664,7 @@ async function handleRoutineClick(event) {
 
   const remove = event.target.closest("[data-del-routine]");
   if (remove) {
-    if (!confirm("Xoá giáo án này? Bài tập, tick và log vẫn được giữ.")) return;
+    if (!confirmText(t("Xoá giáo án này? Bài tập, tick và log vẫn được giữ."))) return;
     try {
       await post("/api/routines/delete", { id: Number(remove.dataset.delRoutine) });
       toast("Đã xoá giáo án");
@@ -1619,7 +1682,7 @@ async function handleRoutineClick(event) {
     const finishedToday = Boolean(routine?.today_session?.finished_at);
     if (
       finishedToday &&
-      !confirm("Tập lại buổi hôm nay? Các bài đã tick trong giáo án sẽ được bỏ tick.")
+      !confirmText(t("Tập lại buổi hôm nay? Các bài đã tick trong giáo án sẽ được bỏ tick."))
     ) {
       return;
     }
@@ -1674,7 +1737,7 @@ async function handleRoutineClick(event) {
       const result = await post("/api/toggle", { habit_id: habitId, day });
       const habit = habitById(state.data).get(habitId);
       const seconds = result.done ? startHabitRest(habit) : 0;
-      if (seconds) toast(`Nghỉ ${seconds} giây · ${habit.name}`);
+      if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
       await load();
       const fresh = (state.data?.routines || []).find((routine) =>
         (routine.items || []).some((item) => item.habit_id === habitId)
@@ -1699,7 +1762,7 @@ async function handleRoutineClick(event) {
     prepareRestAlerts();
     const seconds = Number(rest.dataset.sessionRest) || REST_DEFAULT;
     startRestTimer(seconds, rest.dataset.restLabel || "");
-    toast(`Bắt đầu nghỉ ${seconds} giây`);
+    toast(t("Bắt đầu nghỉ {n} giây", { n: seconds }));
     return;
   }
 
@@ -1814,7 +1877,7 @@ async function handleRoutineAdd(event) {
         target_sets: targetSets,
         target_reps: targetReps,
       });
-      toast(`Đã tạo “${name}” và thêm vào giáo án`);
+      toast(t("Đã tạo “{name}” và thêm vào giáo án", { name }));
       await load();
     } catch (error) {
       toast(error.message);
@@ -2054,7 +2117,7 @@ function initWorkout() {
     try {
       await post("/api/logs", body);
       const rest = startHabitRest(habit);
-      toast(rest ? `Đã lưu · nghỉ ${rest} giây` : "Đã lưu buổi tập");
+      toast(rest ? t("Đã lưu · nghỉ {n} giây", { n: rest }) : t("Đã lưu buổi tập"));
       $("#logNote").value = "";
       $("#logRpe").value = "";
       setLogPrefilled(false);
@@ -2082,7 +2145,7 @@ function initWorkout() {
     const remove = event.target.closest("[data-log-del]");
     if (remove) {
       const [habitId, day] = remove.dataset.logDel.split("|");
-      if (!confirm("Xoá log của buổi này? Tick ngày vẫn được giữ.")) return;
+      if (!confirmText(t("Xoá log của buổi này? Tick ngày vẫn được giữ."))) return;
       try {
         await post("/api/logs/delete", { habit_id: Number(habitId), day });
         toast("Đã xoá log");
@@ -2162,13 +2225,13 @@ function renderRestUi(remaining, duration, running) {
   });
   const hint = running
     ? restState.label
-      ? `Đang nghỉ · ${restState.label}`
-      : "Đang nghỉ"
+      ? t("Đang nghỉ · {label}", { label: restState.label })
+      : t("Đang nghỉ")
     : restState.completed
       ? restState.label
-        ? `Hết giờ · ${restState.label}`
-        : "Hết giờ"
-      : "Sẵn sàng";
+        ? t("Hết giờ · {label}", { label: restState.label })
+        : t("Hết giờ")
+      : t("Sẵn sàng");
   document.querySelectorAll("[data-rest-hint]").forEach((node) => {
     node.textContent = hint;
   });
@@ -2247,22 +2310,22 @@ function updateNotifyButton() {
   const button = $("#restNotifyBtn");
   if (!button) return;
   if (!notificationsSupported()) {
-    button.textContent = "🔕 Không hỗ trợ";
+    button.textContent = t("🔕 Không hỗ trợ");
     button.disabled = true;
     return;
   }
   if (Notification.permission === "granted") {
-    button.textContent = "🔔 Đã bật thông báo";
+    button.textContent = t("🔔 Đã bật thông báo");
     button.disabled = false;
-    button.title = "Gửi thử một thông báo";
+    button.title = t("Gửi thử một thông báo");
   } else if (Notification.permission === "denied") {
-    button.textContent = "🔕 Thông báo bị chặn";
+    button.textContent = t("🔕 Thông báo bị chặn");
     button.disabled = true;
-    button.title = "Mở khoá thông báo trong cài đặt trình duyệt";
+    button.title = t("Mở khoá thông báo trong cài đặt trình duyệt");
   } else {
-    button.textContent = "🔔 Bật thông báo";
+    button.textContent = t("🔔 Bật thông báo");
     button.disabled = false;
-    button.title = "Bật thông báo khi tab ở nền";
+    button.title = t("Bật thông báo khi tab ở nền");
   }
 }
 
@@ -2309,8 +2372,8 @@ async function showRestNotification(title, body, tag = "workout-rest") {
 
 function notifyRestDone(label) {
   if (!document.hidden) return;
-  const body = label ? `${label} — lên tập tiếp theo!` : "Lên tập tiếp theo!";
-  showRestNotification("Hết giờ nghỉ 💪", body);
+  const body = label ? t("{label} — lên tập tiếp theo!", { label }) : t("Lên tập tiếp theo!");
+  showRestNotification(t("Hết giờ nghỉ 💪"), body);
 }
 
 function prepareRestAlerts() {
@@ -2323,7 +2386,7 @@ function prepareRestAlerts() {
 function completeRestTimer() {
   const label = restState.label;
   stopRestTimer({ completed: true });
-  toast(label ? `Hết giờ nghỉ · ${label} — lên tập!` : "Hết giờ nghỉ — lên tập tiếp theo!");
+  toast(label ? t("Hết giờ nghỉ · {label} — lên tập!", { label }) : t("Hết giờ nghỉ — lên tập tiếp theo!"));
   playRestChime();
   vibrateRest();
   notifyRestDone(label);
@@ -2393,13 +2456,13 @@ function initRest() {
   $("#restNotifyBtn").addEventListener("click", async () => {
     if (!notificationsSupported()) return;
     if (Notification.permission === "granted") {
-      showRestNotification("Thông báo đã bật ✅", "Bạn sẽ được báo khi hết giờ nghỉ lúc tab ở nền.");
-      toast("Đã gửi thử thông báo");
+      showRestNotification(t("Thông báo đã bật ✅"), t("Bạn sẽ được báo khi hết giờ nghỉ lúc tab ở nền."));
+      toast(t("Đã gửi thử thông báo"));
       return;
     }
     await requestNotifyPermission();
-    if (Notification.permission === "granted") toast("Đã bật thông báo khi tab nền");
-    else if (Notification.permission === "denied") toast("Trình duyệt đã chặn thông báo");
+    if (Notification.permission === "granted") toast(t("Đã bật thông báo khi tab nền"));
+    else if (Notification.permission === "denied") toast(t("Trình duyệt đã chặn thông báo"));
   });
   updateNotifyButton();
 
@@ -2472,8 +2535,10 @@ function fmtHiitDuration(total) {
   const whole = Math.max(0, Math.round(total));
   const minutes = Math.floor(whole / 60);
   const seconds = whole % 60;
-  if (!minutes) return `${seconds} giây`;
-  return `${minutes} phút${seconds ? ` ${seconds} giây` : ""}`;
+  if (!minutes) return t("{n} giây", { n: seconds });
+  return seconds
+    ? t("{m} phút {s} giây", { m: minutes, s: seconds })
+    : t("{n} phút", { n: minutes });
 }
 
 function updateHiitTotal() {
@@ -2482,9 +2547,10 @@ function updateHiitTotal() {
   const values = hiitState.running
     ? { work: hiitState.workSec, rest: hiitState.restSec, rounds: hiitState.rounds }
     : hiitInputValues();
-  node.textContent = `Tổng ~${fmtHiitDuration(
-    hiitTotalSeconds(values.work, values.rest, values.rounds)
-  )} · ${values.rounds} hiệp`;
+  node.textContent = t("Tổng ~{duration} · {n} hiệp", {
+    duration: fmtHiitDuration(hiitTotalSeconds(values.work, values.rest, values.rounds)),
+    n: values.rounds,
+  });
 }
 
 function renderHiit(remaining, running) {
@@ -2498,10 +2564,10 @@ function renderHiit(remaining, running) {
 
   const phaseNode = $("#hiitPhase");
   if (phaseNode) {
-    if (statePhase === "done") phaseNode.textContent = `HOÀN THÀNH · ${hiitState.rounds} HIỆP`;
-    else if (statePhase === "work") phaseNode.textContent = `HIỆP ${round}/${rounds}`;
-    else if (statePhase === "rest") phaseNode.textContent = `NGHỈ · HIỆP ${round}/${rounds}`;
-    else phaseNode.textContent = `HIỆP 1/${rounds}`;
+    if (statePhase === "done") phaseNode.textContent = t("HOÀN THÀNH · {n} HIỆP", { n: hiitState.rounds });
+    else if (statePhase === "work") phaseNode.textContent = t("HIỆP {r}/{n}", { r: round, n: rounds });
+    else if (statePhase === "rest") phaseNode.textContent = t("NGHỈ · HIỆP {r}/{n}", { r: round, n: rounds });
+    else phaseNode.textContent = t("HIỆP 1/{n}", { n: rounds });
   }
 
   const timeNode = $("#hiitTime");
@@ -2510,7 +2576,7 @@ function renderHiit(remaining, running) {
   }
   const unitNode = $("#hiitUnit");
   if (unitNode) {
-    unitNode.textContent = statePhase === "rest" ? "nghỉ" : statePhase === "done" ? "xong" : "tập";
+    unitNode.textContent = statePhase === "rest" ? t("nghỉ") : statePhase === "done" ? t("xong") : t("tập");
   }
 
   const duration =
@@ -2525,16 +2591,16 @@ function renderHiit(remaining, running) {
 
   const hint = $("#hiitHint");
   if (hint) {
-    if (statePhase === "work") hint.textContent = `Hiệp ${round}/${rounds} · tập`;
-    else if (statePhase === "rest") hint.textContent = `Nghỉ trước hiệp ${round + 1}`;
-    else if (statePhase === "done") hint.textContent = "Xong · bấm Làm lại để tập tiếp";
-    else hint.textContent = "Sẵn sàng";
+    if (statePhase === "work") hint.textContent = t("Hiệp {r}/{n} · tập", { r: round, n: rounds });
+    else if (statePhase === "rest") hint.textContent = t("Nghỉ trước hiệp {n}", { n: round + 1 });
+    else if (statePhase === "done") hint.textContent = t("Xong · bấm Làm lại để tập tiếp");
+    else hint.textContent = t("Sẵn sàng");
   }
 
   const startBtn = $("#hiitStartBtn");
   if (startBtn) {
     startBtn.disabled = running;
-    startBtn.textContent = running ? "Đang chạy" : hiitState.completed ? "Làm lại" : "Bắt đầu";
+    startBtn.textContent = running ? t("Đang chạy") : hiitState.completed ? t("Làm lại") : t("Bắt đầu");
   }
   ["#hiitWork", "#hiitRest", "#hiitRounds"].forEach((selector) => {
     const input = $(selector);
@@ -2545,20 +2611,24 @@ function renderHiit(remaining, running) {
 
 function announceHiitPhase() {
   if (hiitState.phase === "work") {
-    toast(`Hiệp ${hiitState.round}/${hiitState.rounds} — tập!`);
+    toast(t("Hiệp {r}/{n} — tập!", { r: hiitState.round, n: hiitState.rounds }));
     if (document.hidden) {
       showRestNotification(
-        "Bắt đầu hiệp 💪",
+        t("Bắt đầu hiệp 💪"),
         `${hiitState.round}/${hiitState.rounds} · ${hiitState.workSec}s`,
         "workout-hiit"
       );
     }
   } else {
-    toast(`Nghỉ ${hiitState.restSec}s · hiệp ${hiitState.round}/${hiitState.rounds}`);
+    toast(t("Nghỉ {rest}s · hiệp {r}/{n}", {
+      rest: hiitState.restSec,
+      r: hiitState.round,
+      n: hiitState.rounds,
+    }));
     if (document.hidden) {
       showRestNotification(
-        "Nghỉ giữa hiệp",
-        `${hiitState.restSec}s · hiệp ${hiitState.round}/${hiitState.rounds}`,
+        t("Nghỉ giữa hiệp"),
+        `${hiitState.restSec}s · ${hiitState.round}/${hiitState.rounds}`,
         "workout-hiit"
       );
     }
@@ -2583,20 +2653,20 @@ function stopHiit({ completed = false, silent = false } = {}) {
   if (!focusOpen) releaseWakeLock();
   if (silent) return;
   renderHiit(hiitState.workSec, false);
-  if (!completed) toast("Đã dừng HIIT");
+  if (!completed) toast(t("Đã dừng HIIT"));
 }
 
 function finishHiit() {
   const rounds = hiitState.rounds;
   stopHiit({ completed: true, silent: true });
   renderHiit(0, false);
-  toast(`Hoàn thành HIIT · ${rounds} hiệp 🎉`);
+  toast(t("Hoàn thành HIIT · {n} hiệp 🎉", { n: rounds }));
   playRestChime();
   vibrateRest();
   if (document.hidden) {
     showRestNotification(
-      "Hoàn thành HIIT 🎉",
-      `${rounds} hiệp xong — nghỉ ngơi thôi!`,
+      t("Hoàn thành HIIT 🎉"),
+      t("{n} hiệp xong — nghỉ ngơi thôi!", { n: rounds }),
       "workout-hiit"
     );
   }
@@ -2662,7 +2732,11 @@ function startHiit() {
   prepareRestAlerts();
   unlockAudio();
   if (!focusOpen) requestWakeLock();
-  toast(`HIIT bắt đầu · ${values.rounds} hiệp · ${values.work}s tập / ${values.rest}s nghỉ`);
+  toast(t("HIIT bắt đầu · {rounds} hiệp · {work}s tập / {rest}s nghỉ", {
+    rounds: values.rounds,
+    work: values.work,
+    rest: values.rest,
+  }));
 }
 
 function initHiit() {
@@ -2743,8 +2817,8 @@ function applyTheme(theme) {
   const toggle = $("#themeToggle");
   if (toggle) {
     toggle.textContent = theme === "dark" ? "☀️" : "🌙";
-    toggle.setAttribute("aria-label", theme === "dark" ? "Chế độ sáng" : "Chế độ tối");
-    toggle.title = theme === "dark" ? "Chế độ sáng" : "Chế độ tối";
+    toggle.setAttribute("aria-label", theme === "dark" ? t("Chế độ sáng") : t("Chế độ tối"));
+    toggle.title = theme === "dark" ? t("Chế độ sáng") : t("Chế độ tối");
   }
 }
 
@@ -2847,7 +2921,7 @@ function initData() {
   $("#backupNowBtn").addEventListener("click", async () => {
     try {
       await post("/api/backup/create", {});
-      toast("Đã tạo bản sao lưu");
+      toast(t("Đã tạo bản sao lưu"));
       await load();
     } catch (error) {
       toast(error.message);
@@ -2860,15 +2934,15 @@ function initData() {
     const name = button.dataset.backupRestore;
     const label = formatBackupName(name);
     if (
-      !confirm(
-        `Khôi phục dữ liệu từ ${label}? Dữ liệu hiện tại sẽ được thay bằng bản này. App tự sao lưu trước khi khôi phục.`
+      !confirmText(
+        t("Khôi phục dữ liệu từ {label}? Dữ liệu hiện tại sẽ được thay bằng bản này. App tự sao lưu trước khi khôi phục.", { label })
       )
     ) {
       return;
     }
     try {
       await post("/api/backup/restore", { name });
-      toast("Đã khôi phục dữ liệu");
+      toast(t("Đã khôi phục dữ liệu"));
       await load();
     } catch (error) {
       toast(error.message);
@@ -2986,29 +3060,29 @@ function initMobile() {
   const steps = $("#mobileSteps");
   const note = $("#mobileNote");
 
-  if (hint) hint.textContent = standalone ? "đang chạy như app" : "PWA cho Android & iOS";
+  if (hint) hint.textContent = standalone ? t("đang chạy như app") : t("PWA cho Android & iOS");
   if (status) {
     status.textContent = standalone
-      ? "App đang chạy từ màn hình chính; dữ liệu lưu riêng trên máy này."
-      : "Mở link bên dưới trên điện thoại rồi cài vào màn hình chính để dùng như app.";
+      ? t("App đang chạy từ màn hình chính; dữ liệu lưu riêng trên máy này.")
+      : t("Mở link bên dưới trên điện thoại rồi cài vào màn hình chính để dùng như app.");
   }
 
   const iosSteps = [
-    "Mở link bằng <strong>Safari</strong> (không dùng trình duyệt trong Facebook/Zalo).",
-    "Bấm nút <strong>Chia sẻ</strong> (□↑) ở thanh dưới.",
-    "Chọn <strong>Thêm vào Màn hình chính</strong> → <strong>Thêm</strong>.",
-    "Mở app từ icon; dữ liệu được lưu trên chính máy này.",
+    t("Mở link bằng <strong>Safari</strong> (không dùng trình duyệt trong Facebook/Zalo)."),
+    t("Bấm nút <strong>Chia sẻ</strong> (□↑) ở thanh dưới."),
+    t("Chọn <strong>Thêm vào Màn hình chính</strong> → <strong>Thêm</strong>."),
+    t("Mở app từ icon; dữ liệu được lưu trên chính máy này."),
   ];
   const androidSteps = [
-    "Mở link bằng <strong>Chrome</strong>.",
-    "Bấm menu <strong>⋮</strong> → <strong>Cài đặt ứng dụng</strong> (hoặc Thêm vào Màn hình chính).",
-    "Xác nhận <strong>Cài đặt</strong>.",
-    "Mở app từ icon; dữ liệu được lưu trên chính máy này.",
+    t("Mở link bằng <strong>Chrome</strong>."),
+    t("Bấm menu <strong>⋮</strong> → <strong>Cài đặt ứng dụng</strong> (hoặc Thêm vào Màn hình chính)."),
+    t("Xác nhận <strong>Cài đặt</strong>."),
+    t("Mở app từ icon; dữ liệu được lưu trên chính máy này."),
   ];
   const desktopSteps = [
-    "Mở link này trên điện thoại.",
-    "iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính.",
-    "Android: Chrome → menu ⋮ → Cài đặt ứng dụng.",
+    t("Mở link này trên điện thoại."),
+    t("iPhone: Safari → Chia sẻ → Thêm vào Màn hình chính."),
+    t("Android: Chrome → menu ⋮ → Cài đặt ứng dụng."),
   ];
   const list =
     platform === "ios" ? iosSteps : platform === "android" ? androidSteps : desktopSteps;
@@ -3017,8 +3091,8 @@ function initMobile() {
   if (note) {
     const local = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
     note.textContent = local
-      ? "Điện thoại không mở được 127.0.0.1. Hãy dùng bản cài Android/iOS hoặc đưa PWA lên một URL HTTPS."
-      : "Bản PWA lưu dữ liệu trong trình duyệt của máy này. Dùng Xuất/Nhập JSON để sao lưu hoặc chuyển máy.";
+      ? t("Điện thoại không mở được 127.0.0.1. Hãy dùng bản cài Android/iOS hoặc đưa PWA lên một URL HTTPS.")
+      : t("Bản PWA lưu dữ liệu trong trình duyệt của máy này. Dùng Xuất/Nhập JSON để sao lưu hoặc chuyển máy.");
   }
 
   $("#mobileCopy")?.addEventListener("click", copyMobileUrl);

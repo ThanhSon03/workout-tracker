@@ -6,6 +6,7 @@
 
 **A local-first workout, routine and habit tracker that runs in your browser.**
 No account, no server, no tracking — your data stays on your device.
+**Available in Vietnamese, English and Chinese.**
 
 <div align="center">
 <img src="docs/preview.png" alt="Workout Tracker dashboard" width="860" />
@@ -50,7 +51,8 @@ Workout Tracker is a Progressive Web App for planning workouts, ticking off dail
 - Cardio distance/pace and mobility minutes tracking.
 - Deload suggestions, weekly volume trends and recovery coaching.
 - Wellness (mood/sleep) and daily notes.
-- Light and dark themes, Vietnamese UI.
+- Light and dark themes, with **Vietnamese / English / Chinese** UI.
+- Language switcher in the top bar; the choice is saved on each device.
 - **Export/Import JSON** for backup or moving data between devices.
 - Automatic local backups (last 14 snapshots).
 
@@ -84,6 +86,7 @@ Workout Tracker is a Progressive Web App for planning workouts, ticking off dail
 ### Đây là gì?
 
 Workout Tracker là ứng dụng **PWA** giúp lên lịch tập, tick thói quen hằng ngày, ghi sets/reps/kg, theo dõi giáo án và phục hồi. App được thiết kế để **cài như ứng dụng thật** và **dùng được khi không có mạng** sau lần mở đầu tiên.
+**Hỗ trợ Tiếng Việt, English và 中文.**
 
 ### Cài đặt
 
@@ -106,7 +109,8 @@ Workout Tracker là ứng dụng **PWA** giúp lên lịch tập, tick thói que
 - Theo dõi km/pace cardio và số phút giãn cơ.
 - Gợi ý deload, xu hướng volume tuần, gợi ý phục hồi.
 - Wellness (mood/giấc ngủ) và ghi chú theo ngày.
-- Giao diện sáng/tối, tiếng Việt.
+- Giao diện sáng/tối, hỗ trợ **Tiếng Việt / English / 中文**.
+- Nút chọn ngôn ngữ trên thanh trên; lựa chọn được lưu trên từng máy.
 - **Xuất/Nhập JSON** để sao lưu hoặc chuyển dữ liệu giữa các máy.
 - Tự sao lưu local (giữ 14 bản gần nhất).
 

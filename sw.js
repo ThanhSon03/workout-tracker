@@ -1,5 +1,5 @@
 /* Workout Tracker — service worker cho PWA (cache app shell). */
-const CACHE = "workout-tracker-v10";
+const CACHE = "workout-tracker-v11";
 const BASE = new URL("./", self.location.href).href;
 
 const ASSETS = [
@@ -8,6 +8,7 @@ const ASSETS = [
   BASE + "manifest.json",
   BASE + "static/styles.css",
   BASE + "static/app.js",
+  BASE + "static/i18n.js",
   BASE + "static/icon-192.png",
   BASE + "static/icon-256.png",
   BASE + "static/icon-512.png",
