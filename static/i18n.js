@@ -7,6 +7,9 @@
   const en = {
     // topbar / static
     "cách nhàm chán": "the boring way",
+    "Bạn ở đây vì bạn muốn thay đổi. Nếu rời đi, hãy nhớ thứ khiến mình bắt đầu thay đổi.":
+      "You are here because you want to change. If you leave, remember what made you start.",
+    "Kiên trì · Cố gắng · Kỷ luật": "Perseverance · Effort · Discipline",
     "Ngôn ngữ": "Language",
     "Tháng": "Month",
     "Năm": "Year",
@@ -478,6 +481,9 @@
 
   const zh = {
     "cách nhàm chán": "让坚持不再枯燥",
+    "Bạn ở đây vì bạn muốn thay đổi. Nếu rời đi, hãy nhớ thứ khiến mình bắt đầu thay đổi.":
+      "你在这里，是因为你想改变。若有一天离开，请记住当初让你开始改变的理由。",
+    "Kiên trì · Cố gắng · Kỷ luật": "坚持 · 努力 · 自律",
     "Ngôn ngữ": "语言",
     "Tháng": "月份",
     "Năm": "年份",

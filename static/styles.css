@@ -908,3 +908,28 @@ body.focus-open { overflow: hidden; }
   .lang-field { flex: 1 1 100%; }
   .lang-field select { width: 100%; }
 }
+
+/* ---------- motivational slogan ---------- */
+.slogan {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  margin: -6px 0 18px; padding: 11px 18px;
+  border: 1px solid #26262b; border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #141418, #0d0d10);
+  box-shadow: var(--shadow);
+}
+.slogan-quote {
+  margin: 0; max-width: 980px;
+  font-family: inherit; font-style: italic; font-weight: 500;
+  font-size: 13.5px; line-height: 1.5; color: #dcd9cf; letter-spacing: .01em;
+}
+.slogan-values {
+  margin: 0; color: #9f9b90; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .18em; text-transform: uppercase; white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .slogan { padding: 10px 14px; margin-top: -2px; }
+  .slogan-quote { font-size: 12px; }
+  .slogan-values { font-size: 10px; letter-spacing: .14em; }
+}
