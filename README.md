@@ -14,7 +14,7 @@ No account, no server, no tracking — your data stays on your device.
 
 [**Open the app →**](https://thanhson03.github.io/workout-tracker/)
 
-[English](#english) · [Tiếng Việt](#vietnamese)
+[English](#english) · [Tiếng Việt](#vietnamese) · [中文](#chinese)
 
 ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8)
 ![Offline](https://img.shields.io/badge/works-offline-2ea44f)
@@ -134,6 +134,21 @@ Workout Tracker là ứng dụng **PWA** giúp lên lịch tập, tick thói que
 - Repository này chứa **bản build production** đang được GitHub Pages phục vụ.
 - Trên iPhone, app được cài dưới dạng PWA; bản native App Store chưa được phát hành ở đây.
 - Không có analytics, quảng cáo hay theo dõi bên thứ ba.
+
+---
+
+## Chinese
+
+**中文简介**
+
+Workout Tracker 是一个本地优先的健身、训练计划与习惯追踪 PWA。无需账号、无需服务器，训练数据保存在每台设备上。
+
+- **在线使用：** https://thanhson03.github.io/workout-tracker/
+- **iPhone / iPad：** 用 Safari 打开 → 分享 → 添加到主屏幕。
+- **Android：** 用 Chrome 打开 → ⋮ → 安装应用。
+- **功能：** 月度打卡、连续天数、组数/次数/重量记录、训练计划、专注模式、休息计时、HIIT、有氧/拉伸、减载建议、健康与备注。
+- **数据：** 保存在当前设备的浏览器中，不上传到 GitHub。没有自动同步；请用“数据 → 导出 JSON”备份，用“导入 JSON”恢复或换机。
+- **语言：** 应用内可切换 Tiếng Việt / English / 中文。
 
 ---
 
