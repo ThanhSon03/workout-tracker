@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Workout Tracker</title>
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="application-name" content="WorkoutTracker" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="WorkoutTracker" />
+  <link rel="apple-touch-icon" href="./static/icon-256.png?v=3" />
+  <link rel="icon" type="image/png" sizes="256x256" href="./static/icon-256.png?v=3" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./static/icon-192.png?v=3" />
+  <link rel="shortcut icon" sizes="256x256" href="./static/favicon.ico?v=3" />
+  <link rel="stylesheet" href="./static/styles.css" />
+  <script type="module" crossorigin src="/workout-tracker/assets/app.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <img class="brand-mark" src="/workout-tracker/static/icon-192.png" alt="" width="48" height="48" />
+        <h1>Workout Tracker</h1>
+        <span class="brand-sub">cách nhàm chán</span>
+      </div>
+      <div class="topbar-controls">
+        <label class="field">
+          <span>Tháng</span>
+          <select id="monthSelect"></select>
+        </label>
+        <label class="field">
+          <span>Năm</span>
+          <select id="yearSelect"></select>
+        </label>
+        <button class="btn" id="addHabitBtn" type="button">+ Bài tập</button>
+        <button class="btn" id="shareBtn" type="button" title="Tạo link chia sẻ tháng hiện tại">🔗 Chia sẻ</button>
+        <button class="btn icon" id="themeToggle" type="button" title="Chế độ tối / sáng" aria-label="Chế độ tối">🌙</button>
+      </div>
+    </header>
+
+    <main class="board">
+      <section class="card daily">
+        <div class="card-head">
+          <h2>Tiến độ hằng ngày</h2>
+          <span class="hint" id="dailyHint"></span>
+        </div>
+        <div class="chart" id="dailyChart"></div>
+      </section>
+
+      <section class="card weekly">
+        <div class="card-head"><h2>Tiến độ tuần</h2></div>
+        <div class="chart" id="weeklyChart"></div>
+      </section>
+
+      <section class="card goal">
+        <div class="card-head"><h2>Mục tiêu</h2></div>
+        <div class="goal-body">
+          <div class="donut" id="goalDonut"><span id="goalPct">0%</span></div>
+          <dl class="goal-meta">
+            <div><dt>Đã xong</dt><dd id="goalDone">0</dd></div>
+            <div><dt>Cần làm</dt><dd id="goalPossible">0</dd></div>
+            <div><dt>Ngày đã qua</dt><dd id="goalDays">0</dd></div>
+          </dl>
+        </div>
+        <div class="compare" id="goalCompare" hidden></div>
+      </section>
+
+      <section class="card grid-card">
+        <div class="card-head">
+          <h2>Bài tập của tôi</h2>
+          <span class="hint" id="todayHint"></span>
+        </div>
+        <div class="grid-scroll">
+          <table class="habit-grid" id="habitGrid"></table>
+        </div>
+        <form class="add-habit" id="addHabitForm" hidden>
+          <div class="add-main">
+            <input id="habitEmoji" maxlength="4" placeholder="🏋️" aria-label="Emoji" />
+            <input id="habitName" maxlength="80" placeholder="Tên bài tập mới…" aria-label="Tên bài tập" required />
+            <select id="habitKind" aria-label="Loại bài tập" title="Loại bài tập">
+              <option value="strength">🏋️ Tập tạ</option>
+              <option value="cardio">🏃 Cardio (km + phút)</option>
+              <option value="mobility">🧘 Giãn cơ (phút)</option>
+            </select>
+            <label class="add-rest" title="Thời gian nghỉ sau mỗi hiệp. 0 = không tự chạy.">
+              <span>Nghỉ</span>
+              <input type="number" id="habitRest" min="0" max="3600" step="5" value="90" aria-label="Thời gian nghỉ (giây)" />
+              <span>s</span>
+            </label>
+            <button class="btn" type="submit" id="habitSubmit">Thêm</button>
+            <button class="btn ghost" type="button" id="cancelAdd">Huỷ</button>
+          </div>
+          <div class="weekday-picker" id="habitDays" aria-label="Ngày tập trong tuần"></div>
+        </form>
+      </section>
+
+      <section class="card analytics">
+        <div class="card-head"><h2>Phân tích</h2></div>
+        <div class="analytics-list" id="analyticsList"></div>
+      </section>
+
+      <section class="card routines">
+        <div class="card-head">
+          <h2>Giáo án</h2>
+          <div class="routines-head">
+            <span class="hint" id="routinesHint"></span>
+            <button class="btn" type="button" id="addRoutineBtn">+ Giáo án</button>
+          </div>
+        </div>
+        <div class="deload-banner" id="deloadBanner" hidden></div>
+        <form class="routine-form" id="routineForm" hidden>
+          <div class="add-main">
+            <input id="routineEmoji" maxlength="4" placeholder="🏋️" aria-label="Emoji giáo án" />
+            <input id="routineName" maxlength="80" placeholder="Tên giáo án (Push, Pull, Legs…)" required />
+            <button class="btn" type="submit" id="routineSubmit">Tạo</button>
+            <button class="btn ghost" type="button" id="routineCancel">Huỷ</button>
+          </div>
+          <div class="weekday-picker" id="routineDays" aria-label="Ngày tập của giáo án"></div>
+          <p class="log-tip">Để trống ngày nếu muốn tập giáo án này vào bất kỳ hôm nào.</p>
+        </form>
+        <div class="routine-list" id="routineList"></div>
+      </section>
+
+      <section class="card workouts">
+        <div class="card-head">
+          <h2>Buổi tập</h2>
+          <span class="hint" id="logsHint"></span>
+        </div>
+        <form class="workout-form" id="workoutForm">
+          <label class="field">
+            <span>Ngày</span>
+            <input type="date" id="logDay" required />
+          </label>
+          <label class="field log-habit">
+            <span>Bài tập</span>
+            <select id="logHabit" required></select>
+          </label>
+          <label class="field log-strength">
+            <span>Sets</span>
+            <input type="number" id="logSets" min="1" max="50" step="1" value="3" required />
+          </label>
+          <label class="field log-strength">
+            <span>Reps</span>
+            <input type="number" id="logReps" min="1" max="200" step="1" value="8" required />
+          </label>
+          <label class="field log-strength">
+            <span>Kg</span>
+            <input type="number" id="logWeight" min="0" max="1000" step="0.5" value="0" />
+          </label>
+          <label class="field log-cardio">
+            <span>Km</span>
+            <input type="number" id="logKm" min="0.1" max="500" step="0.1" inputmode="decimal" />
+          </label>
+          <label class="field log-duration">
+            <span>Phút</span>
+            <input type="number" id="logMinutes" min="1" max="1440" step="1" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>RPE</span>
+            <input type="number" id="logRpe" min="1" max="10" step="0.5" placeholder="—" />
+          </label>
+          <label class="field log-note">
+            <span>Ghi chú buổi tập</span>
+            <input id="logNote" maxlength="300" placeholder="Set cuối hơi nặng…" />
+          </label>
+          <button class="btn" type="submit">Lưu buổi tập</button>
+          <button class="btn ghost" type="button" id="logCancel" hidden>Huỷ</button>
+        </form>
+        <p class="log-tip">Mẹo: Shift + bấm một ô trong bảng để điền nhanh ngày và bài tập.</p>
+        <div class="workout-meta">
+          <div class="volume-box">
+            <span class="meta-label">Volume tháng</span>
+            <strong id="logVolume">0 kg</strong>
+            <span class="hint" id="logCount"></span>
+          </div>
+          <div class="pr-list" id="prList"></div>
+        </div>
+        <ul class="log-list" id="logList"></ul>
+        <div class="rest-timer" id="restTimer">
+          <div class="rest-head">
+            <h2>Nghỉ</h2>
+            <span class="hint" id="restHint" data-rest-hint></span>
+          </div>
+          <div class="rest-display" id="restDisplay" role="timer" aria-live="polite">
+            <span class="rest-time" id="restTime" data-rest-time>90</span>
+            <span class="rest-unit">giây</span>
+          </div>
+          <div class="rest-bar"><span id="restBarFill" data-rest-bar></span></div>
+          <div class="rest-presets" id="restPresets">
+            <button type="button" class="btn ghost" data-rest-start="30">30s</button>
+            <button type="button" class="btn ghost" data-rest-start="60">60s</button>
+            <button type="button" class="btn ghost" data-rest-start="90">90s</button>
+            <button type="button" class="btn ghost" data-rest-start="120">120s</button>
+          </div>
+          <div class="rest-controls">
+            <label class="field">
+              <span>Giây</span>
+              <input type="number" id="restCustom" min="1" max="3600" value="90" />
+            </label>
+            <button class="btn" type="button" id="restStartBtn" data-rest-toggle>Bắt đầu</button>
+            <button class="btn ghost" type="button" id="restStopBtn" data-rest-stop>Dừng</button>
+          </div>
+          <div class="rest-alerts">
+            <label title="Bíp khi hết giờ nghỉ"><input type="checkbox" id="restSoundToggle" checked /> Âm thanh</label>
+            <label title="Rung khi hết giờ nghỉ"><input type="checkbox" id="restVibrateToggle" checked /> Rung</label>
+            <button class="btn ghost" type="button" id="restNotifyBtn">🔔 Bật thông báo</button>
+          </div>
+
+          <div class="hiit" id="hiitPanel" data-phase="idle">
+            <div class="hiit-head">
+              <h2>HIIT / Cardio</h2>
+              <span class="hint" id="hiitHint" data-hiit-hint>Sẵn sàng</span>
+            </div>
+            <div class="hiit-display" id="hiitDisplay" role="timer" aria-live="polite">
+              <span class="hiit-phase" id="hiitPhase" data-hiit-phase>HIỆP 1/8</span>
+              <span class="hiit-time" id="hiitTime" data-hiit-time>00:20</span>
+              <span class="hiit-unit" id="hiitUnit" data-hiit-unit>tập</span>
+            </div>
+            <div class="rest-bar hiit-bar"><span id="hiitBarFill" data-hiit-bar></span></div>
+            <div class="hiit-presets" id="hiitPresets">
+              <button type="button" class="btn ghost" data-hiit-preset="20,10,8">Tabata 20/10 × 8</button>
+              <button type="button" class="btn ghost" data-hiit-preset="30,30,10">HIIT 30/30 × 10</button>
+              <button type="button" class="btn ghost" data-hiit-preset="40,20,12">HIIT 40/20 × 12</button>
+              <button type="button" class="btn ghost" data-hiit-preset="60,60,10">EMOM 60/60 × 10</button>
+            </div>
+            <div class="hiit-controls">
+              <label class="field">
+                <span>Tập (giây)</span>
+                <input type="number" id="hiitWork" min="1" max="3600" step="1" value="20" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span>Nghỉ (giây)</span>
+                <input type="number" id="hiitRest" min="0" max="3600" step="1" value="10" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span>Số hiệp</span>
+                <input type="number" id="hiitRounds" min="1" max="99" step="1" value="8" inputmode="numeric" />
+              </label>
+              <button class="btn" type="button" id="hiitStartBtn" data-hiit-toggle>Bắt đầu</button>
+              <button class="btn ghost" type="button" id="hiitStopBtn" data-hiit-stop>Dừng</button>
+            </div>
+            <p class="hint hiit-total" id="hiitTotal"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card cardio-card" id="cardioCard" hidden>
+        <div class="card-head">
+          <h2>Cardio & giãn cơ</h2>
+          <span class="hint" id="cardioHint"></span>
+        </div>
+        <div class="cardio-summary" id="cardioSummary"></div>
+        <div class="chart" id="cardioChart"></div>
+      </section>
+
+      <section class="card recovery">
+        <div class="card-head">
+          <h2>Hồi phục</h2>
+          <span class="hint" id="recoveryHint"></span>
+        </div>
+        <div class="recovery-action" id="recoveryAction">—</div>
+        <ul class="recovery-reasons" id="recoveryReasons"></ul>
+      </section>
+
+      <section class="card wellness">
+        <div class="card-head">
+          <h2>Sức khỏe tổng thể</h2>
+          <div class="legend">
+            <span class="legend-item"><i class="dot mood"></i>Tâm trạng</span>
+            <span class="legend-item"><i class="dash sleep"></i>Giờ ngủ</span>
+          </div>
+        </div>
+        <div class="chart wellness-chart" id="wellnessChart"></div>
+        <form class="wellness-form" id="wellnessForm">
+          <label class="field">
+            <span>Ngày</span>
+            <input type="date" id="wellnessDay" required />
+          </label>
+          <label class="field">
+            <span>Tâm trạng (1–5)</span>
+            <select id="wellnessMood">
+              <option value="">—</option>
+              <option value="1">1 · tệ</option>
+              <option value="2">2</option>
+              <option value="3">3 · ổn</option>
+              <option value="4">4</option>
+              <option value="5">5 · tuyệt</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Giờ ngủ</span>
+            <input type="number" id="wellnessSleep" min="0" max="14" step="0.5" placeholder="7.5" />
+          </label>
+          <button class="btn" type="submit">Lưu wellness</button>
+        </form>
+      </section>
+
+      <section class="card heatmap-card">
+        <div class="card-head">
+          <h2>Toàn năm</h2>
+          <span class="hint" id="heatmapHint"></span>
+        </div>
+        <div class="heatmap-scroll">
+          <div class="heatmap-grid" id="yearHeatmap"></div>
+        </div>
+      </section>
+
+      <section class="card notes">
+        <div class="card-head">
+          <h2>Ghi chú</h2>
+          <span class="hint" id="notesHint"></span>
+        </div>
+        <form class="notes-form" id="notesForm">
+          <label class="field">
+            <span>Ngày</span>
+            <input type="date" id="noteDay" required />
+          </label>
+          <label class="field note-text">
+            <span>Ghi chú</span>
+            <input id="noteText" maxlength="500" placeholder="Hôm nay đau lưng, tập nhẹ…" />
+          </label>
+          <button class="btn" type="submit">Lưu ghi chú</button>
+        </form>
+        <ul class="notes-list" id="notesList"></ul>
+      </section>
+
+      <section class="card data-card">
+        <div class="card-head"><h2>Dữ liệu</h2><span class="hint" id="dataHint"></span></div>
+        <p class="log-tip">Backup toàn bộ dữ liệu (JSON) hoặc nhập lại từ file đã xuất.</p>
+        <div class="data-actions">
+          <button class="btn" type="button" id="exportBtn">Xuất JSON</button>
+          <button class="btn ghost" type="button" id="importBtn">Chọn file .json</button>
+          <input type="file" id="importFile" accept=".json,application/json" hidden />
+        </div>
+        <textarea class="import-text" id="importText" rows="6" placeholder="…hoặc dán nội dung JSON vào đây…"></textarea>
+        <div class="data-actions">
+          <button class="btn" type="button" id="importSubmit">Import</button>
+        </div>
+        <div class="backup-box">
+          <div class="backup-head">
+            <span class="meta-label">Sao lưu tự động</span>
+            <span class="hint" id="backupHint"></span>
+            <button class="btn ghost" type="button" id="backupNowBtn">Sao lưu ngay</button>
+          </div>
+          <p class="log-tip">Tự tạo khi mở app (cách nhau ít nhất 30 phút), giữ 14 bản mới nhất trong thư mục <code>backups</code> cạnh <code>data.db</code>.</p>
+          <ul class="backup-list" id="backupList"></ul>
+        </div>
+      </section>
+
+      <section class="card mobile-card" id="mobileCard">
+        <div class="card-head">
+          <h2>Dùng trên điện thoại</h2>
+          <span class="hint" id="mobileHint"></span>
+        </div>
+        <p class="log-tip" id="mobileStatus"></p>
+        <div class="mobile-link">
+          <code id="mobileUrl">—</code>
+          <button class="btn ghost" type="button" id="mobileCopy">Sao chép link</button>
+          <button class="btn" type="button" id="mobileInstall" hidden>Cài app</button>
+        </div>
+        <ol class="mobile-steps" id="mobileSteps"></ol>
+        <p class="hint" id="mobileNote"></p>
+      </section>
+
+      <nav class="month-tabs" id="monthTabs" aria-label="Chọn tháng"></nav>
+    </main>
+
+    <button class="focus-fab" id="focusFab" type="button" hidden>
+      <span class="fab-dot"></span>
+      <span class="fab-label">Đang tập</span>
+      <span class="fab-time">0:00</span>
+    </button>
+
+    <div class="focus" id="focusMode" hidden>
+      <div class="focus-inner" role="dialog" aria-modal="true" aria-labelledby="focusName">
+        <header class="focus-head">
+          <div class="focus-heading">
+            <span class="focus-emoji" id="focusEmoji">🏋️</span>
+            <div class="focus-titles">
+              <h2 id="focusName">Buổi tập</h2>
+              <span class="focus-meta"><span id="focusElapsed">0:00</span> · <span id="focusCount">0/0 bài</span><span id="focusDay"></span></span>
+            </div>
+          </div>
+          <button class="focus-close" id="focusClose" type="button" title="Thu nhỏ" aria-label="Thu nhỏ buổi tập">▾</button>
+        </header>
+
+        <div class="focus-chips" id="focusChips" hidden></div>
+        <div class="progress-track focus-progress"><span id="focusProgress" style="width:0%"></span></div>
+        <ul class="focus-list" id="focusList"></ul>
+
+        <div class="focus-rest">
+          <div class="focus-rest-head">
+            <span class="meta-label">Nghỉ giữa hiệp</span>
+            <span class="hint" id="focusRestHint" data-rest-hint></span>
+          </div>
+          <div class="focus-rest-row">
+            <span class="focus-rest-time"><span data-rest-time>90</span><small>s</small></span>
+            <div class="rest-bar focus-rest-bar"><span data-rest-bar></span></div>
+            <div class="focus-rest-actions">
+              <button class="btn ghost" type="button" data-rest-start="60">60s</button>
+              <button class="btn ghost" type="button" data-rest-start="90">90s</button>
+              <button class="btn ghost" type="button" data-rest-start="120">120s</button>
+              <button class="btn ghost" type="button" data-rest-stop>Dừng</button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="focus-actions">
+          <button class="btn" id="focusFinish" type="button">Kết thúc buổi</button>
+          <button class="btn ghost" id="focusCancel" type="button">Huỷ</button>
+        </footer>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script src="./static/app.js"></script>
+</body>
+</html>

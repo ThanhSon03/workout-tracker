@@ -1,0 +1,49 @@
+{
+  "id": "./",
+  "name": "Workout Tracker",
+  "short_name": "WorkoutTracker",
+  "description": "Theo dõi bài tập, giáo án, buổi tập và sức khỏe hằng ngày",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["health", "fitness", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "static/icon-256.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
