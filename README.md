@@ -23,9 +23,7 @@ No account, no server, no tracking — your data stays on your device.
 
 ---
 
-<a id="english"></a>
-
-## 🇬🇧 English
+## English
 
 ### What is it?
 
@@ -79,9 +77,9 @@ Workout Tracker is a Progressive Web App for planning workouts, ticking off dail
 
 ---
 
-<a id="vietnamese"></a>
+## Vietnamese
 
-## 🇻🇳 Tiếng Việt
+**Tiếng Việt**
 
 ### Đây là gì?
 
