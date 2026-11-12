@@ -7,6 +7,10 @@
 **A local-first workout, routine and habit tracker that runs in your browser.**
 No account, no server, no tracking — your data stays on your device.
 
+<div align="center">
+<img src="docs/preview.png" alt="Workout Tracker dashboard" width="860" />
+</div>
+
 [**Open the app →**](https://thanhson03.github.io/workout-tracker/)
 
 [English](#english) · [Tiếng Việt](#vietnamese)
