@@ -38,17 +38,59 @@ const esc = (value) =>
 const numFmt = new Intl.NumberFormat(LOCALE(), { maximumFractionDigits: 1 });
 const fmtNum = (value) => numFmt.format(Number(value) || 0);
 
+/* ---------- units (display only — data is always stored in kg / km) ---------- */
+
+const UNITS_KEY = "wt-units";
+const KG_PER_LB = 0.45359237;
+const KM_PER_MI = 1.609344;
+
+function readUnits() {
+  try {
+    const raw = localStorage.getItem(UNITS_KEY);
+    if (raw === "metric" || raw === "imperial") return raw;
+  } catch {
+    /* ignore */
+  }
+  return "metric";
+}
+
+let units = readUnits();
+const imperial = () => units === "imperial";
+const weightUnit = () => (imperial() ? "lb" : "kg");
+const distanceUnit = () => (imperial() ? "mi" : "km");
+
+const roundTo = (value, digits) => {
+  const factor = 10 ** digits;
+  return Math.round((Number(value) || 0) * factor) / factor;
+};
+
+const weightFromKg = (kg) => (imperial() ? (Number(kg) || 0) / KG_PER_LB : Number(kg) || 0);
+const weightToKg = (value) =>
+  imperial() ? roundTo((Number(value) || 0) * KG_PER_LB, 4) : Number(value) || 0;
+const distanceFromKm = (km) =>
+  imperial() ? (Number(km) || 0) / KM_PER_MI : Number(km) || 0;
+const distanceToKm = (value) =>
+  imperial() ? roundTo((Number(value) || 0) * KM_PER_MI, 4) : Number(value) || 0;
+
+const fmtWeight = (kg) => `${fmtNum(weightFromKg(kg))} ${weightUnit()}`;
+const fmtDistance = (km) => `${fmtNum(distanceFromKm(km))} ${distanceUnit()}`;
+const fmtVolume = (kg) => `${fmtNum(weightFromKg(kg))} ${weightUnit()}`;
+const displayWeight = (kg) => roundTo(weightFromKg(kg), 1);
+const displayDistance = (km) => roundTo(distanceFromKm(km), 2);
+const paceValue = (minPerKm) =>
+  imperial() ? (Number(minPerKm) || 0) * KM_PER_MI : Number(minPerKm) || 0;
+
 const KIND_LABELS = { strength: t("Tập tạ"), cardio: "Cardio", mobility: t("Giãn cơ") };
 const confirmText = (message) =>
   window.confirm(window.WT_I18N ? window.WT_I18N.translateMessage(message) : message);
 
 function formatPace(minPerKm) {
-  const value = Number(minPerKm) || 0;
+  const value = paceValue(minPerKm);
   if (value <= 0) return "—";
   const minutes = Math.floor(value);
   let seconds = Math.round((value - minutes) * 60);
-  if (seconds === 60) return `${minutes + 1}:00/km`;
-  return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
+  if (seconds === 60) return `${minutes + 1}:00/${distanceUnit()}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}/${distanceUnit()}`;
 }
 
 function habitById(d) {
@@ -241,6 +283,7 @@ function render() {
   renderBackups(d);
   renderTabs();
   renderTodayHint(d);
+  renderTodayView(d);
 }
 
 function renderGoal(d) {
@@ -316,7 +359,7 @@ function renderGrid(d) {
   const logTitle = (habit, log) => {
     const kind = habitKind(habit);
     if (kind === "cardio" && (log.distance_km || 0) > 0) {
-      let text = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} ${t("phút")} · ${formatPace(log.pace)}`;
+      let text = `${fmtDistance(log.distance_km)} · ${fmtNum(log.duration_min)} ${t("phút")} · ${formatPace(log.pace)}`;
       if (log.note) text += ` · ${log.note}`;
       return text;
     }
@@ -325,7 +368,7 @@ function renderGrid(d) {
       if (log.note) text += ` · ${log.note}`;
       return text;
     }
-    const load = log.weight > 0 ? `${fmtNum(log.weight)} kg` : "BW";
+    const load = log.weight > 0 ? fmtWeight(log.weight) : "BW";
     let text = `${log.sets}×${log.reps} @ ${load}`;
     if (log.rpe != null) text += ` · RPE ${fmtNum(log.rpe)}`;
     if (log.note) text += ` · ${log.note}`;
@@ -454,7 +497,7 @@ function renderWorkout(d) {
   const logs = (d.logs || []).slice().reverse();
   const totalVolume = logs.reduce((sum, log) => sum + (log.volume || 0), 0);
   const volumeMonth = d.volume_month != null ? d.volume_month : totalVolume;
-  $("#logVolume").textContent = `${fmtNum(volumeMonth)} kg`;
+  $("#logVolume").textContent = fmtVolume(volumeMonth);
   $("#logCount").textContent = logs.length
     ? t("{n} buổi · {sets} sets", {
         n: logs.length,
@@ -474,14 +517,14 @@ function renderWorkout(d) {
           const delta = deltas.get(pr.habit_id);
           const deltaText = delta
             ? delta.delta > 0
-              ? `<span class="pr-delta up">▲ +${fmtNum(delta.delta)} kg</span>`
+              ? `<span class="pr-delta up">▲ +${fmtWeight(delta.delta)}</span>`
               : delta.delta < 0
-                ? `<span class="pr-delta down">▼ ${fmtNum(Math.abs(delta.delta))} kg</span>`
-                : `<span class="pr-delta flat">→ ${fmtNum(delta.delta)} kg</span>`
+                ? `<span class="pr-delta down">▼ ${fmtWeight(Math.abs(delta.delta))}</span>`
+                : `<span class="pr-delta flat">→ ${fmtWeight(delta.delta)}</span>`
             : "";
           return `<span class="pr-chip" title="${esc(t("PR ước tính (Epley) ngày {day}", { day: pr.day }))}">
             <span>${esc(habit.emoji)} ${esc(habit.name)}</span>
-            <strong>~${fmtNum(pr.e1rm)} kg</strong>
+            <strong>~${fmtWeight(pr.e1rm)}</strong>
             <span class="pr-day">${esc(formatDay(pr.day))}</span>
             ${deltaText}
           </span>`;
@@ -501,15 +544,15 @@ function renderWorkout(d) {
       let detail;
       let total;
       if (kind === "cardio") {
-        detail = `${fmtNum(log.distance_km)} km · ${fmtNum(log.duration_min)} ${t("phút")}`;
+        detail = `${fmtDistance(log.distance_km)} · ${fmtNum(log.duration_min)} ${t("phút")}`;
         total = formatPace(log.pace);
       } else if (kind === "mobility") {
         detail = `${fmtNum(log.duration_min)} ${t("phút")}`;
         total = "—";
       } else {
-        const load = log.weight > 0 ? `${fmtNum(log.weight)} kg` : "BW";
+        const load = log.weight > 0 ? fmtWeight(log.weight) : "BW";
         detail = `${log.sets}×${log.reps} @ ${load}`;
-        total = log.volume > 0 ? `${fmtNum(log.volume)} kg` : "—";
+        total = log.volume > 0 ? fmtVolume(log.volume) : "—";
       }
       const key = `${log.habit_id}|${log.day}`;
       const label = `${habit.name} ${formatDay(log.day)}`;
@@ -540,6 +583,16 @@ function updateLogFields(kind) {
   });
   document.querySelectorAll("#workoutForm .log-duration").forEach((field) => {
     field.hidden = isStrength;
+  });
+  // Trường ẩn không tham gia validation (tránh min=1 chặn form của loại bài khác).
+  document.querySelectorAll("#workoutForm .log-strength input").forEach((input) => {
+    input.disabled = !isStrength;
+  });
+  document.querySelectorAll("#workoutForm .log-cardio input").forEach((input) => {
+    input.disabled = kind !== "cardio";
+  });
+  document.querySelectorAll("#workoutForm .log-duration input").forEach((input) => {
+    input.disabled = isStrength;
   });
   $("#logSets").required = isStrength;
   $("#logReps").required = isStrength;
@@ -613,13 +666,13 @@ function renderCardio(d) {
           })}`
         : "";
     chips.push(
-      `<span class="pr-chip cardio-chip"><span>${esc(t("Cardio tháng"))}</span><strong>${fmtNum(totals.km)} km</strong><span class="pr-day">${t("{minutes} phút · {n} buổi", { minutes: fmtNum(totals.minutes), n: totals.sessions })}${paceText}</span></span>`
+      `<span class="pr-chip cardio-chip"><span>${esc(t("Cardio tháng"))}</span><strong>${fmtDistance(totals.km)}</strong><span class="pr-day">${t("{minutes} phút · {n} buổi", { minutes: fmtNum(totals.minutes), n: totals.sessions })}${paceText}</span></span>`
     );
     cardioRows.forEach((row) => {
       const habit = habitsById.get(row.habit_id);
       if (!habit) return;
       chips.push(
-        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtNum(row.km)} km</strong><span class="pr-day">${t("{n} buổi", { n: row.sessions })}${row.best_pace > 0 ? ` · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}` : ""}</span></span>`
+        `<span class="pr-chip"><span>${esc(habit.emoji)} ${esc(habit.name)}</span><strong>${fmtDistance(row.km)}</strong><span class="pr-day">${t("{n} buổi", { n: row.sessions })}${row.best_pace > 0 ? ` · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}` : ""}</span></span>`
       );
     });
   }
@@ -636,7 +689,7 @@ function renderCardio(d) {
     });
   }
   $("#cardioSummary").innerHTML = chips.join("");
-  $("#cardioHint").textContent = hasCardio ? t("km theo tuần") : "";
+  $("#cardioHint").textContent = hasCardio ? t("{unit} theo tuần", { unit: distanceUnit() }) : "";
 
   const chartBox = $("#cardioChart");
   if (!hasCardio || totals.km <= 0) {
@@ -656,8 +709,11 @@ function renderCardio(d) {
     if (weekIndex >= 0) kmByWeek[weekIndex] += Number(log.distance_km) || 0;
   });
   chartBox.innerHTML = valueChart(
-    kmByWeek.map((km, index) => ({ label: `T${index + 1}`, value: km })),
-    { unit: "km" }
+    kmByWeek.map((km, index) => ({
+      label: `T${index + 1}`,
+      value: roundTo(distanceFromKm(km), 1),
+    })),
+    { unit: distanceUnit() }
   );
 }
 
@@ -678,13 +734,13 @@ function renderAnalytics(d) {
         let prText = "";
         if (habitKind(full) === "cardio") {
           const row = cardioRows.get(habit.id);
-          if (row) prText = ` · <span class="pr">${fmtNum(row.km)} km · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}</span>`;
+          if (row) prText = ` · <span class="pr">${fmtDistance(row.km)} · ${t("nhanh nhất {pace}", { pace: formatPace(row.best_pace) })}</span>`;
         } else if (habitKind(full) === "mobility") {
           const row = mobilityRows.get(habit.id);
           if (row) prText = ` · <span class="pr">${fmtNum(row.minutes)} ${t("phút giãn cơ")}</span>`;
         } else {
           const pr = (d.prs || []).find((row) => row.habit_id === habit.id);
-          prText = pr ? ` · <span class="pr">PR ~${fmtNum(pr.e1rm)} kg</span>` : "";
+          prText = pr ? ` · <span class="pr">PR ~${fmtWeight(pr.e1rm)}</span>` : "";
         }
         return `
       <div class="analytic">
@@ -881,6 +937,258 @@ function renderTodayHint(d) {
   $("#todayHint").textContent = text;
 }
 
+/* ---------------- chế độ xem: tháng / hôm nay ---------------- */
+
+const VIEW_KEY = "wt-view";
+
+function readView() {
+  try {
+    const raw = localStorage.getItem(VIEW_KEY);
+    if (raw === "month" || raw === "today") return raw;
+  } catch {
+    /* ignore */
+  }
+  return "month";
+}
+
+let currentView = readView();
+
+function applyView(view) {
+  currentView = view === "today" ? "today" : "month";
+  document.body.dataset.view = currentView;
+  const todayCard = $("#todayView");
+  if (todayCard) todayCard.hidden = currentView !== "today";
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    const active = button.dataset.view === currentView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function setView(view) {
+  const next = view === "today" ? "today" : "month";
+  if (next === currentView) return;
+  try {
+    localStorage.setItem(VIEW_KEY, next);
+  } catch {
+    /* ignore */
+  }
+  applyView(next);
+  if (next === "today" && state.data) {
+    renderTodayView(state.data);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+function todayWeekday(d) {
+  return (new Date(`${d.today}T00:00:00`).getDay() + 6) % 7;
+}
+
+function todayDoneSet(d) {
+  return new Set(
+    (d.entries || []).filter(([, day]) => day === d.today).map(([habitId]) => Number(habitId))
+  );
+}
+
+function todayHabits(d) {
+  const weekday = todayWeekday(d);
+  const done = todayDoneSet(d);
+  return (d.habits || []).filter((habit) => {
+    const days = Array.isArray(habit.weekdays) ? habit.weekdays : ALL_DAYS;
+    return days.includes(weekday) || done.has(habit.id);
+  });
+}
+
+function todayLogText(habit, log) {
+  if (!log) return "";
+  const kind = habitKind(habit);
+  if (kind === "cardio") {
+    return `${fmtDistance(log.distance_km)} · ${fmtNum(log.duration_min)} ${t("phút")}`;
+  }
+  if (kind === "mobility") return `${fmtNum(log.duration_min)} ${t("phút")}`;
+  if (!log.sets && !log.reps) return "";
+  return `${log.sets}×${log.reps}${log.weight > 0 ? ` @ ${fmtWeight(log.weight)}` : ""}`;
+}
+
+function renderTodayView(d) {
+  const card = $("#todayView");
+  if (!card) return;
+
+  const dateNode = $("#todayViewDate");
+  if (dateNode) {
+    const date = new Date(`${d.today}T00:00:00`);
+    const text = new Intl.DateTimeFormat(LOCALE(), {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    }).format(date);
+    dateNode.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  const habits = todayHabits(d);
+  const done = todayDoneSet(d);
+  const skipped = (d.skips || []).some((row) => row.day === d.today);
+  const doneCount = habits.filter((habit) => done.has(habit.id)).length;
+  const pct = habits.length ? Math.round((doneCount * 100) / habits.length) : 0;
+
+  const fill = $("#todayProgressFill");
+  if (fill) fill.style.width = `${pct}%`;
+  const count = $("#todayCount");
+  if (count) {
+    count.textContent = habits.length
+      ? t("{done}/{total} bài", { done: doneCount, total: habits.length })
+      : "";
+  }
+
+  const list = $("#todayList");
+  if (!list) return;
+  if (!habits.length) {
+    list.innerHTML = `<li class="today-empty">${esc(
+      skipped
+        ? t("Hôm nay là ngày nghỉ — không có bài nào.")
+        : t("Hôm nay chưa có bài nào được lên lịch.")
+    )}</li>`;
+    return;
+  }
+
+  list.innerHTML = habits
+    .map((habit) => {
+      const isDone = done.has(habit.id);
+      const rest = habitRestSeconds(habit);
+      const log = (d.logs || []).find(
+        (row) => row.habit_id === habit.id && row.day === d.today
+      );
+      const meta = todayLogText(habit, log) || scheduleLabel(habit.weekdays);
+      const restButton =
+        habitKind(habit) === "strength" && rest > 0
+          ? `<button class="today-mini" type="button" data-rest-start="${rest}" data-rest-label="${esc(habit.name)}" title="${esc(t("Nghỉ {n} giây", { n: rest }))}" aria-label="${esc(t("Nghỉ {n} giây", { n: rest }))}">⏱</button>`
+          : "";
+      return `<li class="today-item${isDone ? " done" : ""}">
+        <button class="today-check" type="button" data-today-toggle="${habit.id}" aria-pressed="${isDone}" aria-label="${esc(`${isDone ? t("Bỏ tick") : t("Tick")} ${habit.name}`)}">${isDone ? "✓" : ""}</button>
+        <div class="today-main">
+          <span class="today-name"><span class="today-emoji">${esc(habit.emoji)}</span> <span class="today-label">${esc(habit.name)}</span></span>
+          <span class="today-meta">${esc(meta)}</span>
+        </div>
+        <div class="today-actions">
+          ${restButton}
+          <button class="today-mini" type="button" data-today-log="${habit.id}" title="${esc(t("Ghi chi tiết bài này"))}" aria-label="${esc(t("Log {name}", { name: habit.name }))}">${esc(t("Log"))}</button>
+        </div>
+      </li>`;
+    })
+    .join("");
+}
+
+function initTodayView() {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view));
+  });
+  applyView(currentView);
+
+  const card = $("#todayView");
+  if (card) {
+    card.addEventListener("click", (event) => {
+      const rest = event.target.closest("[data-rest-start]");
+      if (rest) {
+        prepareRestAlerts();
+        startRestTimer(
+          Number(rest.dataset.restStart) || REST_DEFAULT,
+          rest.dataset.restLabel || ""
+        );
+        return;
+      }
+      if (event.target.closest("[data-rest-stop]")) {
+        stopRestTimer();
+      }
+    });
+  }
+
+  const list = $("#todayList");
+  if (!list) return;
+  list.addEventListener("click", async (event) => {
+    const toggle = event.target.closest("[data-today-toggle]");
+    if (toggle) {
+      if (!state.data) return;
+      const habitId = Number(toggle.dataset.todayToggle);
+      const day = state.data.today;
+      toggle.disabled = true;
+      prepareRestAlerts();
+      try {
+        const result = await post("/api/toggle", { habit_id: habitId, day });
+        const habit = habitById(state.data).get(habitId);
+        const seconds = result.done ? startHabitRest(habit) : 0;
+        if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
+        await load();
+      } catch (error) {
+        toggle.disabled = false;
+        toast(error.message);
+      }
+      return;
+    }
+
+    const log = event.target.closest("[data-today-log]");
+    if (log) {
+      const habitId = Number(log.dataset.todayLog);
+      const day = state.data?.today || localISODate();
+      setView("month");
+      prefillLog(habitId, day);
+    }
+  });
+}
+
+function initUnits() {
+  const select = $("#unitSelect");
+  updateUnitControls();
+  if (!select) return;
+  select.addEventListener("change", () => {
+    const next = select.value === "imperial" ? "imperial" : "metric";
+    if (next === units) return;
+    const wasImperial = imperial();
+    const weight = Number($("#logWeight")?.value);
+    const distance = Number($("#logKm")?.value);
+    units = next;
+    try {
+      localStorage.setItem(UNITS_KEY, units);
+    } catch {
+      /* ignore */
+    }
+    updateUnitControls();
+    if (weight > 0) {
+      $("#logWeight").value = roundTo(
+        wasImperial ? weight * KG_PER_LB : weight / KG_PER_LB,
+        1
+      );
+    }
+    if (distance > 0) {
+      $("#logKm").value = roundTo(
+        wasImperial ? distance * KM_PER_MI : distance / KM_PER_MI,
+        2
+      );
+    }
+    if (state.data) render();
+    toast(imperial() ? t("Đã đổi sang lb · mi") : t("Đã đổi sang kg · km"));
+  });
+}
+
+function updateUnitControls() {
+  const select = $("#unitSelect");
+  if (select) select.value = units;
+  const weightLabel = $("#logWeightLabel");
+  if (weightLabel) weightLabel.textContent = imperial() ? "Lb" : "Kg";
+  const kmLabel = $("#logKmLabel");
+  if (kmLabel) kmLabel.textContent = imperial() ? "Mi" : "Km";
+  const weightInput = $("#logWeight");
+  if (weightInput) {
+    weightInput.max = imperial() ? "2205" : "1000";
+    // Cho phép số lẻ sau quy đổi lb → kg mà không phá validation của form.
+    weightInput.step = "0.1";
+  }
+  const kmInput = $("#logKm");
+  if (kmInput) {
+    kmInput.max = imperial() ? "311" : "500";
+    kmInput.step = "0.01";
+  }
+}
+
 function renderRecovery(d) {
   const rec = d.recovery || { action: "normal", reasons: [] };
   const action = ["normal", "light", "deload"].includes(rec.action) ? rec.action : "normal";
@@ -925,7 +1233,7 @@ function suggestionLabel(item) {
   const suggestion = item.suggestion;
   if (!suggestion) return (item.kind || "strength") === "strength" ? t("chưa có log") : "";
   const deload = String(suggestion.note || "").toLowerCase().includes("deload");
-  return `→ ${fmtNum(suggestion.weight)} kg × ${suggestion.reps}${deload ? ` · ${t("deload")}` : ""}`;
+  return `→ ${fmtWeight(suggestion.weight)} × ${suggestion.reps}${deload ? ` · ${t("deload")}` : ""}`;
 }
 
 function renderDeloadBanner(d) {
@@ -2062,10 +2370,11 @@ function prefillLog(habitId, day) {
   if (existing) {
     $("#logSets").value = existing.sets;
     $("#logReps").value = existing.reps;
-    $("#logWeight").value = existing.weight;
+    $("#logWeight").value = existing.weight != null ? displayWeight(existing.weight) : "";
     $("#logRpe").value = existing.rpe == null ? "" : existing.rpe;
     $("#logNote").value = existing.note || "";
-    $("#logKm").value = existing.distance_km != null ? existing.distance_km : "";
+    $("#logKm").value =
+      existing.distance_km != null ? displayDistance(existing.distance_km) : "";
     $("#logMinutes").value = existing.duration_min != null ? existing.duration_min : "";
   } else if (kind !== "strength") {
     $("#logKm").value = "";
@@ -2105,14 +2414,14 @@ function initWorkout() {
       note: $("#logNote").value.trim(),
     };
     if (kind === "cardio") {
-      body.distance_km = Number($("#logKm").value);
+      body.distance_km = distanceToKm($("#logKm").value);
       body.duration_min = Number($("#logMinutes").value);
     } else if (kind === "mobility") {
       body.duration_min = Number($("#logMinutes").value);
     } else {
       body.sets = Number($("#logSets").value);
       body.reps = Number($("#logReps").value);
-      body.weight = Number($("#logWeight").value || 0);
+      body.weight = weightToKg(Number($("#logWeight").value || 0));
     }
     try {
       await post("/api/logs", body);
@@ -2468,6 +2777,7 @@ function initRest() {
 
   document.addEventListener("pointerdown", unlockAudio, { once: true, passive: true });
   document.addEventListener("keydown", unlockAudio, { once: true });
+  renderRestUi(restState.duration, restState.duration, false);
 }
 
 /* ---------- HIIT / cardio interval timer ---------- */
@@ -3138,6 +3448,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initGrid();
   initRoutines();
   initFocusMode();
+  initTodayView();
+  initUnits();
   initAddHabit();
   initWellness();
   initNotes();

@@ -42,6 +42,14 @@ body {
 .brand-sub { font-size: 11px; color: #7f7d75; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
 
 .topbar-controls { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.view-switch { display: inline-flex; align-self: flex-end; border: 1px solid #33333a; border-radius: 8px; overflow: hidden; }
+.view-btn { background: transparent; color: #cfcdc6; border: 0; padding: 8px 13px; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .02em; cursor: pointer; }
+.view-btn + .view-btn { border-left: 1px solid #33333a; }
+.view-btn:hover { background: #1c1c21; }
+.view-btn.active { background: #f2f1ec; color: #101013; }
+body[data-view="today"] .topbar-controls > .field:not(.lang-field):not(.unit-field) { display: none; }
+body[data-view="today"] #addHabitBtn,
+body[data-view="today"] #shareBtn { display: none; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: #9a978e; }
 .field select, .field input {
   background: #0d0d10; color: #f2f1ec; border: 1px solid #33333a; border-radius: 7px;
@@ -470,6 +478,53 @@ body {
 .backup-size { color: var(--muted); font-variant-numeric: tabular-nums; }
 .backup-item .btn { margin-left: auto; padding: 4px 10px; font-size: 10.5px; }
 .backup-empty { color: var(--muted); font-size: 11.5px; font-style: italic; }
+
+/* ---------- today view ---------- */
+body[data-view="today"] .board > section:not(.today-view) { display: none; }
+.today-view { grid-column: 1 / -1; }
+.today-view[hidden] { display: none; }
+.today-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.today-progress .progress-track { flex: 1; height: 8px; background: var(--paper-2); border-radius: 99px; overflow: hidden; }
+.today-progress .progress-track > span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 99px; transition: width .25s ease; }
+.today-count { font-size: 11px; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.today-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.today-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--line-strong); border-radius: 10px; background: #fbfaf5;
+}
+.today-item.done { border-color: var(--accent); }
+.today-check {
+  width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%;
+  border: 2px solid var(--line-strong); background: transparent; cursor: pointer;
+  font: inherit; font-size: 16px; font-weight: 800; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.today-check:hover { border-color: var(--ink); }
+.today-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.today-item.done .today-check { background: var(--accent); border-color: var(--accent); }
+.today-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.today-name { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.today-item.done .today-name { opacity: .6; }
+.today-item.done .today-label { text-decoration: line-through; }
+.today-meta { font-size: 11px; color: var(--muted); }
+.today-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.today-mini {
+  border: 1px solid var(--line-strong); background: transparent; color: var(--ink);
+  border-radius: 7px; padding: 7px 10px; font: inherit; font-size: 11px;
+  font-weight: 700; cursor: pointer;
+}
+.today-mini:hover { border-color: var(--ink); }
+.today-empty {
+  list-style: none; padding: 22px 16px; text-align: center; color: var(--muted);
+  font-size: 12.5px; border: 1px dashed var(--line-strong); border-radius: 10px;
+}
+.today-rest { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.today-rest .rest-presets { align-items: center; }
+
+[data-theme="dark"] .today-item { background: #0d0d10; border-color: #33333a; }
+[data-theme="dark"] .today-item.done { border-color: var(--accent); }
+[data-theme="dark"] .today-check { background: #0d0d10; border-color: #6d6a61; color: #000; }
+[data-theme="dark"] .today-item.done .today-check { background: var(--accent); border-color: var(--accent); color: #000; }
 
 /* ---------- dark mode ---------- */
 [data-theme="dark"] {

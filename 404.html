@@ -29,12 +29,23 @@
         <span class="brand-sub" data-i18n="cách nhàm chán">cách nhàm chán</span>
       </div>
       <div class="topbar-controls">
+        <div class="view-switch" role="group" data-i18n-aria-label="Chế độ xem" aria-label="Chế độ xem">
+          <button class="view-btn active" id="viewMonth" type="button" data-view="month" aria-pressed="true" data-i18n="Tháng">Tháng</button>
+          <button class="view-btn" id="viewToday" type="button" data-view="today" aria-pressed="false" data-i18n="Hôm nay">Hôm nay</button>
+        </div>
         <label class="field lang-field">
           <span data-i18n="Ngôn ngữ">Ngôn ngữ</span>
           <select id="langSelect" data-i18n-aria-label="Ngôn ngữ" aria-label="Ngôn ngữ">
             <option value="vi">Tiếng Việt</option>
             <option value="en">English</option>
             <option value="zh">中文</option>
+          </select>
+        </label>
+        <label class="field unit-field">
+          <span data-i18n="Đơn vị">Đơn vị</span>
+          <select id="unitSelect" data-i18n-aria-label="Đơn vị" aria-label="Đơn vị">
+            <option value="metric">kg · km</option>
+            <option value="imperial">lb · mi</option>
           </select>
         </label>
         <label class="field">
@@ -57,6 +68,36 @@
     </section>
 
     <main class="board">
+      <section class="card today-view" id="todayView" hidden>
+        <div class="card-head">
+          <h2 data-i18n="Hôm nay">Hôm nay</h2>
+          <span class="hint" id="todayViewDate"></span>
+        </div>
+        <div class="today-progress">
+          <span class="progress-track"><span id="todayProgressFill"></span></span>
+          <span class="today-count" id="todayCount"></span>
+        </div>
+        <ul class="today-list" id="todayList"></ul>
+        <div class="today-rest">
+          <div class="rest-head">
+            <h2 data-i18n="Nghỉ">Nghỉ</h2>
+            <span class="hint" id="todayRestHint" data-rest-hint></span>
+          </div>
+          <div class="rest-display" role="timer" aria-live="polite">
+            <span class="rest-time" data-rest-time>90</span>
+            <span class="rest-unit" data-i18n="giây">giây</span>
+          </div>
+          <div class="rest-bar"><span data-rest-bar></span></div>
+          <div class="rest-presets">
+            <button type="button" class="btn ghost" data-rest-start="30">30s</button>
+            <button type="button" class="btn ghost" data-rest-start="60">60s</button>
+            <button type="button" class="btn ghost" data-rest-start="90">90s</button>
+            <button type="button" class="btn ghost" data-rest-start="120">120s</button>
+            <button class="btn ghost" type="button" data-rest-stop data-i18n="Dừng">Dừng</button>
+          </div>
+        </div>
+      </section>
+
       <section class="card daily">
         <div class="card-head">
           <h2 data-i18n="Tiến độ hằng ngày">Tiến độ hằng ngày</h2>
@@ -162,11 +203,11 @@
             <input type="number" id="logReps" min="1" max="200" step="1" value="8" required />
           </label>
           <label class="field log-strength">
-            <span data-i18n="Kg">Kg</span>
+            <span id="logWeightLabel" data-i18n="Kg">Kg</span>
             <input type="number" id="logWeight" min="0" max="1000" step="0.5" value="0" />
           </label>
           <label class="field log-cardio">
-            <span data-i18n="Km">Km</span>
+            <span id="logKmLabel" data-i18n="Km">Km</span>
             <input type="number" id="logKm" min="0.1" max="500" step="0.1" inputmode="decimal" />
           </label>
           <label class="field log-duration">

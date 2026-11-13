@@ -477,6 +477,14 @@
     "Deload": "Deload",
     "Light": "Light",
     "Normal": "Normal",
+    "Đơn vị": "Units",
+    "Chế độ xem": "View",
+    "Đã đổi sang lb · mi": "Switched to lb · mi",
+    "Đã đổi sang kg · km": "Switched to kg · km",
+    "{unit} theo tuần": "{unit} per week",
+    "Nghỉ {n} giây · {name}": "Rest {n}s · {name}",
+    "Hôm nay chưa có bài nào được lên lịch.": "No exercises scheduled for today.",
+    "Hôm nay là ngày nghỉ — không có bài nào.": "Today is a rest day — nothing scheduled.",
   };
 
   const zh = {
@@ -946,6 +954,14 @@
     "Deload": "减载",
     "Light": "轻量",
     "Normal": "正常",
+    "Đơn vị": "单位",
+    "Chế độ xem": "视图",
+    "Đã đổi sang lb · mi": "已切换到 lb · mi",
+    "Đã đổi sang kg · km": "已切换到 kg · km",
+    "{unit} theo tuần": "每周 {unit}",
+    "Nghỉ {n} giây · {name}": "休息 {n} 秒 · {name}",
+    "Hôm nay chưa có bài nào được lên lịch.": "今天没有安排训练。",
+    "Hôm nay là ngày nghỉ — không có bài nào.": "今天是休息日 — 没有安排。",
   };
 
   function detectLanguage() {
