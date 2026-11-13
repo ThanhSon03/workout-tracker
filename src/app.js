@@ -173,7 +173,7 @@ const post = (path, body) =>
 async function load() {
   const [payload, body] = await Promise.all([
     api(`/api/state?year=${state.year}&month=${state.month}`),
-    api("/api/body").catch(() => ({ body_metrics: [] })),
+    api("/api/body?limit=60").catch(() => ({ body_metrics: [] })),
   ]);
   state.data = payload.state;
   state.body = body.body_metrics || [];
@@ -3597,11 +3597,44 @@ function initPwa() {
   if (window.WTLocal && window.WTLocal.platform !== "web") return;
   if (location.port === "5173") return;
   if (!("serviceWorker" in navigator)) return;
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Chỉ hiện khi đã có SW từ trước (tức là bản cập nhật), không hiện ở lần cài đầu.
+    if (!hadController) return;
+    showUpdateBanner();
+  });
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(() => {
       // Bỏ qua nếu trình duyệt không hỗ trợ.
     });
   });
+}
+
+function showUpdateBanner() {
+  if (document.querySelector(".update-banner")) return;
+  const bar = document.createElement("div");
+  bar.className = "update-banner";
+  bar.setAttribute("role", "status");
+
+  const text = document.createElement("span");
+  text.className = "update-text";
+  text.textContent = t("Có bản cập nhật");
+
+  const reload = document.createElement("button");
+  reload.className = "update-reload";
+  reload.type = "button";
+  reload.textContent = t("Tải lại");
+  reload.addEventListener("click", () => location.reload());
+
+  const close = document.createElement("button");
+  close.className = "update-close";
+  close.type = "button";
+  close.setAttribute("aria-label", t("Đóng"));
+  close.textContent = "×";
+  close.addEventListener("click", () => bar.remove());
+
+  bar.append(text, reload, close);
+  document.body.appendChild(bar);
 }
 
 /* ---------- cài app trên điện thoại (PWA) ---------- */

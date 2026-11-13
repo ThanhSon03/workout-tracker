@@ -959,6 +959,26 @@ body.focus-open { overflow: hidden; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- update banner ---------- */
+.update-banner {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: #16161a; color: #f2f1ec; border: 1px solid #33333a;
+  border-radius: 10px; padding: 9px 12px; z-index: 90;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  font-size: 12px; max-width: calc(100vw - 24px);
+}
+.update-text { font-weight: 700; letter-spacing: .02em; }
+.update-reload {
+  background: #f2f1ec; color: #101013; border: 0; border-radius: 6px;
+  padding: 6px 10px; font: inherit; font-weight: 800; font-size: 11.5px; cursor: pointer;
+}
+.update-close {
+  background: transparent; border: 0; color: #9a978e; font-size: 16px;
+  line-height: 1; cursor: pointer; padding: 2px 4px;
+}
+.update-close:hover { color: #f2f1ec; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
   .board { grid-template-columns: 1fr 1fr; }

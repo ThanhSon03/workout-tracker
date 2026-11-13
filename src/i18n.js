@@ -508,6 +508,9 @@
     "Xoá số đo ngày {day}?": "Delete measurements for {day}?",
     "Đã lưu số đo": "Measurements saved",
     "Đã xoá số đo": "Measurements deleted",
+    "Có bản cập nhật": "Update available",
+    "Tải lại": "Reload",
+    "Đóng": "Close",
   };
 
   const zh = {
@@ -1008,6 +1011,9 @@
     "Xoá số đo ngày {day}?": "删除 {day} 的测量数据？",
     "Đã lưu số đo": "测量已保存",
     "Đã xoá số đo": "测量已删除",
+    "Có bản cập nhật": "有新版本",
+    "Tải lại": "重新加载",
+    "Đóng": "关闭",
   };
 
   function detectLanguage() {
