@@ -3,7 +3,7 @@
    - HTML / điều hướng: network-first (luôn ưu tiên bản mới), offline thì lấy cache.
    - Tài sản tĩnh (JS, CSS, wasm, icon…): cache-first, nền tảng cho tải lại gần như tức thì.
 */
-const CACHE = "workout-tracker-v14";
+const CACHE = "workout-tracker-v15";
 const BASE = new URL("./", self.location.href).href;
 const BASE_PATH = new URL(BASE).pathname;
 
