@@ -27,7 +27,7 @@ const gridWeekLabel = (index) => {
   return t("Tuần {n}", { n: index });
 };
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-const state = { year: new Date().getFullYear(), month: new Date().getMonth() + 1, data: null };
+const state = { year: new Date().getFullYear(), month: new Date().getMonth() + 1, data: null, body: [] };
 let logPrefilled = false;
 
 const esc = (value) =>
@@ -43,6 +43,7 @@ const fmtNum = (value) => numFmt.format(Number(value) || 0);
 const UNITS_KEY = "wt-units";
 const KG_PER_LB = 0.45359237;
 const KM_PER_MI = 1.609344;
+const CM_PER_IN = 2.54;
 
 function readUnits() {
   try {
@@ -58,6 +59,7 @@ let units = readUnits();
 const imperial = () => units === "imperial";
 const weightUnit = () => (imperial() ? "lb" : "kg");
 const distanceUnit = () => (imperial() ? "mi" : "km");
+const lengthUnit = () => (imperial() ? "in" : "cm");
 
 const roundTo = (value, digits) => {
   const factor = 10 ** digits;
@@ -71,12 +73,18 @@ const distanceFromKm = (km) =>
   imperial() ? (Number(km) || 0) / KM_PER_MI : Number(km) || 0;
 const distanceToKm = (value) =>
   imperial() ? roundTo((Number(value) || 0) * KM_PER_MI, 4) : Number(value) || 0;
+const lengthFromCm = (cm) =>
+  imperial() ? (Number(cm) || 0) / CM_PER_IN : Number(cm) || 0;
+const lengthToCm = (value) =>
+  imperial() ? roundTo((Number(value) || 0) * CM_PER_IN, 3) : Number(value) || 0;
 
 const fmtWeight = (kg) => `${fmtNum(weightFromKg(kg))} ${weightUnit()}`;
 const fmtDistance = (km) => `${fmtNum(distanceFromKm(km))} ${distanceUnit()}`;
 const fmtVolume = (kg) => `${fmtNum(weightFromKg(kg))} ${weightUnit()}`;
+const fmtLength = (cm) => `${fmtNum(lengthFromCm(cm))} ${lengthUnit()}`;
 const displayWeight = (kg) => roundTo(weightFromKg(kg), 1);
 const displayDistance = (km) => roundTo(distanceFromKm(km), 2);
+const displayLength = (cm) => roundTo(lengthFromCm(cm), 1);
 const paceValue = (minPerKm) =>
   imperial() ? (Number(minPerKm) || 0) * KM_PER_MI : Number(minPerKm) || 0;
 
@@ -163,8 +171,12 @@ const post = (path, body) =>
   });
 
 async function load() {
-  const payload = await api(`/api/state?year=${state.year}&month=${state.month}`);
+  const [payload, body] = await Promise.all([
+    api(`/api/state?year=${state.year}&month=${state.month}`),
+    api("/api/body").catch(() => ({ body_metrics: [] })),
+  ]);
   state.data = payload.state;
+  state.body = body.body_metrics || [];
   render();
   checkMilestones(state.data);
 }
@@ -278,6 +290,7 @@ function render() {
   renderRecovery(d);
   renderAnalytics(d);
   renderWellness(d);
+  renderBody();
   renderYearHeatmap(d);
   renderNotes(d);
   renderBackups(d);
@@ -884,6 +897,282 @@ function renderNotes(d) {
     .join("");
 }
 
+/* ---------------- body metrics ---------------- */
+
+const BODY_MEASURES = [
+  ["chest_cm", "Vòng ngực", "bodyChest"],
+  ["waist_cm", "Vòng eo", "bodyWaist"],
+  ["hips_cm", "Vòng hông", "bodyHips"],
+  ["arm_cm", "Vòng tay", "bodyArm"],
+  ["thigh_cm", "Vòng đùi", "bodyThigh"],
+  ["neck_cm", "Vòng cổ", "bodyNeck"],
+];
+
+function bodyEntries() {
+  return (state.body || []).slice().sort((a, b) => String(a.day).localeCompare(String(b.day)));
+}
+
+function renderBody() {
+  const entries = bodyEntries();
+  const hint = $("#bodyHint");
+  if (hint) hint.textContent = entries.length ? t("{n} lần đo", { n: entries.length }) : "";
+  renderBodySummary(entries);
+  renderBodyChart(entries);
+  renderBodyList(entries);
+}
+
+function previousWeightEntry(entries, latest) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const row = entries[index];
+    if (row === latest) continue;
+    if (row.weight_kg != null) return row;
+  }
+  return null;
+}
+
+function renderBodySummary(entries) {
+  const box = $("#bodySummary");
+  if (!box) return;
+  if (!entries.length) {
+    box.innerHTML = `<p class="analytics-empty">${esc(
+      t("Chưa có số đo nào. Nhập cân nặng hoặc số đo để bắt đầu.")
+    )}</p>`;
+    return;
+  }
+
+  const latest = entries[entries.length - 1];
+  const cards = [];
+
+  if (latest.weight_kg != null) {
+    const previous = previousWeightEntry(entries, latest);
+    let delta = "";
+    if (previous) {
+      const diff = latest.weight_kg - previous.weight_kg;
+      const cls = diff > 0 ? " up" : diff < 0 ? " down" : "";
+      const sign = diff > 0 ? "+" : diff < 0 ? "−" : "";
+      delta = `<span class="body-delta${cls}">${sign}${fmtWeight(Math.abs(diff))}</span>`;
+    }
+    cards.push(
+      `<div class="body-stat"><span class="k">${esc(t("Cân nặng"))}</span><span class="v">${esc(
+        fmtWeight(latest.weight_kg)
+      )}</span>${delta}</div>`
+    );
+  }
+
+  if (latest.body_fat != null) {
+    cards.push(
+      `<div class="body-stat"><span class="k">${esc(t("Tỷ lệ mỡ"))}</span><span class="v">${esc(
+        `${fmtNum(latest.body_fat)}%`
+      )}</span></div>`
+    );
+  }
+
+  for (const [key, label] of BODY_MEASURES) {
+    if (latest[key] == null) continue;
+    cards.push(
+      `<div class="body-stat"><span class="k">${esc(t(label))}</span><span class="v">${esc(
+        fmtLength(latest[key])
+      )}</span></div>`
+    );
+  }
+
+  cards.push(
+    `<div class="body-stat date"><span class="k">${esc(t("Cập nhật"))}</span><span class="v small">${esc(
+      formatDay(latest.day)
+    )}</span></div>`
+  );
+
+  box.innerHTML = cards.join("");
+}
+
+function renderBodyChart(entries) {
+  const box = $("#bodyChart");
+  if (!box) return;
+  const points = entries.filter((row) => row.weight_kg != null).slice(-30);
+  if (points.length < 2) {
+    box.innerHTML = `<p class="analytics-empty">${esc(
+      t("Chưa đủ dữ liệu để vẽ biểu đồ.")
+    )}</p>`;
+    return;
+  }
+
+  const values = points.map((row) => weightFromKg(row.weight_kg));
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (max - min < 1) {
+    const mid = (max + min) / 2;
+    min = mid - 0.5;
+    max = mid + 0.5;
+  }
+  const padSpan = (max - min) * 0.18;
+  min -= padSpan;
+  max += padSpan;
+
+  const W = 780;
+  const H = 190;
+  const pad = { l: 44, r: 12, t: 14, b: 24 };
+  const iw = W - pad.l - pad.r;
+  const ih = H - pad.t - pad.b;
+  const x = (index) =>
+    points.length <= 1 ? pad.l + iw / 2 : pad.l + (index / (points.length - 1)) * iw;
+  const y = (value) => pad.t + ih * (1 - (value - min) / (max - min));
+
+  const parts = [];
+  [0, 0.5, 1].forEach((ratio) => {
+    const value = min + (max - min) * ratio;
+    const yy = pad.t + ih * (1 - ratio);
+    parts.push(`<line class="grid-line" x1="${pad.l}" x2="${W - pad.r}" y1="${yy}" y2="${yy}"/>`);
+    parts.push(
+      `<text class="axis" x="${pad.l - 6}" y="${yy + 3}" text-anchor="end">${esc(
+        `${fmtNum(value)} ${weightUnit()}`
+      )}</text>`
+    );
+  });
+
+  let path = "";
+  points.forEach((row, index) => {
+    path += `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(weightFromKg(row.weight_kg)).toFixed(1)} `;
+  });
+  parts.push(`<path class="line-body" d="${path.trim()}"/>`);
+
+  points.forEach((row, index) => {
+    const cx = x(index).toFixed(1);
+    const cy = y(weightFromKg(row.weight_kg)).toFixed(1);
+    const title = `${formatDay(row.day)} · ${fmtWeight(row.weight_kg)}`;
+    parts.push(`<circle class="dot-body" cx="${cx}" cy="${cy}" r="2.6"><title>${esc(title)}</title></circle>`);
+    if (index === 0 || index === points.length - 1 || index === Math.floor((points.length - 1) / 2)) {
+      parts.push(
+        `<text class="axis" x="${cx}" y="${H - 6}" text-anchor="middle">${esc(
+          formatDay(row.day)
+        )}</text>`
+      );
+    }
+  });
+
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`;
+}
+
+function renderBodyList(entries) {
+  const list = $("#bodyList");
+  if (!list) return;
+  const recent = entries.slice(-8).reverse();
+  if (!recent.length) {
+    list.innerHTML = `<li class="body-empty">${esc(t("Chưa có lần đo nào."))}</li>`;
+    return;
+  }
+
+  list.innerHTML = recent
+    .map((row) => {
+      const parts = [];
+      if (row.weight_kg != null) parts.push(fmtWeight(row.weight_kg));
+      if (row.body_fat != null) parts.push(`${fmtNum(row.body_fat)}%`);
+      for (const [key] of BODY_MEASURES) {
+        if (row[key] != null) parts.push(fmtLength(row[key]));
+      }
+      return `<li class="body-item">
+        <button class="body-day" type="button" data-body-edit="${esc(row.day)}" title="${esc(
+          t("Sửa số đo")
+        )}">${esc(formatDay(row.day))}</button>
+        <span class="body-vals">${esc(parts.join(" · "))}</span>
+        <button class="body-del" type="button" data-body-del="${esc(row.day)}" title="${esc(
+          t("Xoá số đo")
+        )}" aria-label="${esc(t("Xoá số đo ngày {day}", { day: formatDay(row.day) }))}">×</button>
+      </li>`;
+    })
+    .join("");
+}
+
+function prefillBody(day) {
+  const dayInput = $("#bodyDay");
+  if (!dayInput) return;
+  const date = day || localISODate();
+  dayInput.value = date;
+  const entry = bodyEntries().find((row) => row.day === date);
+  const set = (selector, value) => {
+    const node = $(selector);
+    if (node) node.value = value == null ? "" : value;
+  };
+  set("#bodyWeight", entry && entry.weight_kg != null ? displayWeight(entry.weight_kg) : "");
+  set("#bodyFat", entry && entry.body_fat != null ? entry.body_fat : "");
+  for (const [key, , id] of BODY_MEASURES) {
+    set(`#${id}`, entry && entry[key] != null ? displayLength(entry[key]) : "");
+  }
+}
+
+function initBody() {
+  const form = $("#bodyForm");
+  if (!form) return;
+  const dayInput = $("#bodyDay");
+  prefillBody(localISODate());
+  dayInput.addEventListener("change", () => prefillBody(dayInput.value));
+
+  const valueOf = (selector) => {
+    const node = $(selector);
+    const raw = node ? String(node.value).trim() : "";
+    return raw === "" ? null : Number(raw);
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const day = dayInput.value || localISODate();
+    const weight = valueOf("#bodyWeight");
+    const payload = {
+      day,
+      weight_kg: weight == null ? null : weightToKg(weight),
+      body_fat: valueOf("#bodyFat"),
+    };
+    for (const [key, , id] of BODY_MEASURES) {
+      const value = valueOf(`#${id}`);
+      payload[key] = value == null ? null : lengthToCm(value);
+    }
+
+    try {
+      await post("/api/body", payload);
+      toast(t("Đã lưu số đo"));
+      await load();
+      prefillBody(day);
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $("#bodyDelete").addEventListener("click", async () => {
+    const day = dayInput.value;
+    if (!day) return;
+    if (!confirmText(t("Xoá số đo ngày {day}?", { day: formatDay(day) }))) return;
+    try {
+      await post("/api/body/delete", { day });
+      toast(t("Đã xoá số đo"));
+      await load();
+      prefillBody(day);
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+
+  $("#bodyList").addEventListener("click", async (event) => {
+    const edit = event.target.closest("[data-body-edit]");
+    if (edit) {
+      prefillBody(edit.dataset.bodyEdit);
+      $("#bodyCard")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    const remove = event.target.closest("[data-body-del]");
+    if (!remove) return;
+    const day = remove.dataset.bodyDel;
+    if (!confirmText(t("Xoá số đo ngày {day}?", { day: formatDay(day) }))) return;
+    try {
+      await post("/api/body/delete", { day });
+      toast(t("Đã xoá số đo"));
+      await load();
+      prefillBody(dayInput.value);
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+}
+
 function formatBytes(bytes) {
   const value = Number(bytes) || 0;
   if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
@@ -1145,6 +1434,8 @@ function initUnits() {
     const wasImperial = imperial();
     const weight = Number($("#logWeight")?.value);
     const distance = Number($("#logKm")?.value);
+    const bodyWeight = Number($("#bodyWeight")?.value);
+    const bodyLengths = BODY_MEASURES.map(([, , id]) => Number($(`#${id}`)?.value));
     units = next;
     try {
       localStorage.setItem(UNITS_KEY, units);
@@ -1164,6 +1455,21 @@ function initUnits() {
         2
       );
     }
+    if (bodyWeight > 0) {
+      $("#bodyWeight").value = roundTo(
+        wasImperial ? bodyWeight * KG_PER_LB : bodyWeight / KG_PER_LB,
+        1
+      );
+    }
+    BODY_MEASURES.forEach(([, , id], index) => {
+      const value = bodyLengths[index];
+      if (value > 0) {
+        $(`#${id}`).value = roundTo(
+          wasImperial ? value * CM_PER_IN : value / CM_PER_IN,
+          1
+        );
+      }
+    });
     if (state.data) render();
     toast(imperial() ? t("Đã đổi sang lb · mi") : t("Đã đổi sang kg · km"));
   });
@@ -1186,6 +1492,12 @@ function updateUnitControls() {
   if (kmInput) {
     kmInput.max = imperial() ? "311" : "500";
     kmInput.step = "0.01";
+  }
+  const bodyWeightLabel = $("#bodyWeightLabel");
+  if (bodyWeightLabel) bodyWeightLabel.textContent = `${t("Cân nặng")} (${weightUnit()})`;
+  for (const [, label, id] of BODY_MEASURES) {
+    const node = $(`#${id}Label`);
+    if (node) node.textContent = `${t(label)} (${lengthUnit()})`;
   }
 }
 
@@ -3452,6 +3764,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initUnits();
   initAddHabit();
   initWellness();
+  initBody();
   initNotes();
   initWorkout();
   initRest();

@@ -354,6 +354,58 @@
         </form>
       </section>
 
+      <section class="card body-card" id="bodyCard">
+        <div class="card-head">
+          <h2 data-i18n="Cơ thể">Cơ thể</h2>
+          <span class="hint" id="bodyHint"></span>
+        </div>
+        <div class="body-summary" id="bodySummary"></div>
+        <div class="chart body-chart" id="bodyChart"></div>
+        <form class="body-form" id="bodyForm">
+          <label class="field">
+            <span data-i18n="Ngày">Ngày</span>
+            <input type="date" id="bodyDay" required />
+          </label>
+          <label class="field">
+            <span id="bodyWeightLabel" data-i18n="Cân nặng">Cân nặng</span>
+            <input type="number" id="bodyWeight" min="0" max="1000" step="0.1" placeholder="70" />
+          </label>
+          <label class="field">
+            <span data-i18n="Tỷ lệ mỡ (%)">Tỷ lệ mỡ (%)</span>
+            <input type="number" id="bodyFat" min="0" max="100" step="0.1" placeholder="18" />
+          </label>
+          <label class="field">
+            <span id="bodyChestLabel" data-i18n="Vòng ngực">Vòng ngực</span>
+            <input type="number" id="bodyChest" min="0" max="300" step="0.1" />
+          </label>
+          <label class="field">
+            <span id="bodyWaistLabel" data-i18n="Vòng eo">Vòng eo</span>
+            <input type="number" id="bodyWaist" min="0" max="300" step="0.1" />
+          </label>
+          <label class="field">
+            <span id="bodyHipsLabel" data-i18n="Vòng hông">Vòng hông</span>
+            <input type="number" id="bodyHips" min="0" max="300" step="0.1" />
+          </label>
+          <label class="field">
+            <span id="bodyArmLabel" data-i18n="Vòng tay">Vòng tay</span>
+            <input type="number" id="bodyArm" min="0" max="300" step="0.1" />
+          </label>
+          <label class="field">
+            <span id="bodyThighLabel" data-i18n="Vòng đùi">Vòng đùi</span>
+            <input type="number" id="bodyThigh" min="0" max="300" step="0.1" />
+          </label>
+          <label class="field">
+            <span id="bodyNeckLabel" data-i18n="Vòng cổ">Vòng cổ</span>
+            <input type="number" id="bodyNeck" min="0" max="300" step="0.1" />
+          </label>
+          <div class="body-actions">
+            <button class="btn" type="submit" data-i18n="Lưu số đo">Lưu số đo</button>
+            <button class="btn ghost" type="button" id="bodyDelete" data-i18n="Xoá ngày này">Xoá ngày này</button>
+          </div>
+        </form>
+        <ul class="body-list" id="bodyList"></ul>
+      </section>
+
       <section class="card heatmap-card">
         <div class="card-head">
           <h2 data-i18n="Toàn năm">Toàn năm</h2>
