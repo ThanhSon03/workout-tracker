@@ -1,9 +1,9 @@
-/* Workout Tracker — service worker cho PWA (cache app shell).
-   Chiến lược:
-   - HTML / điều hướng: network-first (luôn ưu tiên bản mới), offline thì lấy cache.
-   - Tài sản tĩnh (JS, CSS, wasm, icon…): cache-first, nền tảng cho tải lại gần như tức thì.
+﻿/* Workout Tracker â€” service worker cho PWA (cache app shell).
+   Chiáº¿n lÆ°á»£c:
+   - HTML / Ä‘iá»u hÆ°á»›ng: network-first (luÃ´n Æ°u tiÃªn báº£n má»›i), offline thÃ¬ láº¥y cache.
+   - TÃ i sáº£n tÄ©nh (JS, CSS, wasm, iconâ€¦): cache-first, ná»n táº£ng cho táº£i láº¡i gáº§n nhÆ° tá»©c thÃ¬.
 */
-const CACHE = "workout-tracker-v15";
+const CACHE = "workout-tracker-v16";
 const BASE = new URL("./", self.location.href).href;
 const BASE_PATH = new URL(BASE).pathname;
 
@@ -39,7 +39,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  // Xoá cache của các version cũ để UI cũ không quay lại.
+  // XoÃ¡ cache cá»§a cÃ¡c version cÅ© Ä‘á»ƒ UI cÅ© khÃ´ng quay láº¡i.
   event.waitUntil(
     caches
       .keys()
@@ -71,9 +71,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.includes("/api/")) return; // API -> chỉ dùng mạng
+  if (url.pathname.includes("/api/")) return; // API -> chá»‰ dÃ¹ng máº¡ng
 
-  // HTML: mạng trước, cache dự phòng.
+  // HTML: máº¡ng trÆ°á»›c, cache dá»± phÃ²ng.
   if (isHtmlRequest(request, url)) {
     event.respondWith(
       fetch(request)
@@ -96,7 +96,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Tài sản tĩnh: cache trước, mạng sau (và tự bổ sung cache).
+  // TÃ i sáº£n tÄ©nh: cache trÆ°á»›c, máº¡ng sau (vÃ  tá»± bá»• sung cache).
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

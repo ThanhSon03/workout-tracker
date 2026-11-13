@@ -1,0 +1,12 @@
+{
+  "name": "workout-tracker-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Workout Tracker — static site. Source trong src/, bản production trong static/.",
+  "scripts": {
+    "build": "node scripts/build-assets.cjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
