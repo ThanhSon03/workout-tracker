@@ -1,6 +1,11 @@
-/* Workout Tracker — service worker cho PWA (cache app shell). */
-const CACHE = "workout-tracker-v13";
+/* Workout Tracker — service worker cho PWA (cache app shell).
+   Chiến lược:
+   - HTML / điều hướng: network-first (luôn ưu tiên bản mới), offline thì lấy cache.
+   - Tài sản tĩnh (JS, CSS, wasm, icon…): cache-first, nền tảng cho tải lại gần như tức thì.
+*/
+const CACHE = "workout-tracker-v14";
 const BASE = new URL("./", self.location.href).href;
+const BASE_PATH = new URL(BASE).pathname;
 
 const ASSETS = [
   BASE,
@@ -45,46 +50,62 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith("/api/")) return; // API -> network only
-  // Mạng trước, cache dự phòng: cập nhật code là reload là thấy luôn;
-  // mất mạng thì vẫn mở được app từ cache.
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        const sameOrigin = new URL(response.url).origin === self.location.origin;
-        if (response.ok && sameOrigin) {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
-        }
-        return response;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request, { ignoreVary: true });
-        if (cached) return cached;
-        if (event.request.mode === "navigate") {
-          return (
-            (await caches.match(BASE + "index.html", { ignoreVary: true })) ||
-            (await caches.match(BASE, { ignoreVary: true })) ||
-            Response.error()
-          );
-        }
-        return Response.error();
-      })
-  );
-});
+function isHtmlRequest(request, url) {
+  if (request.mode === "navigate") return true;
+  if (url.pathname.endsWith("/")) return true;
+  if (url.pathname.endsWith(".html")) return true;
+  return url.pathname === BASE_PATH;
+}
 
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close();
-  event.waitUntil(
-    self.clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        const client = clients.find((row) => "focus" in row);
-        if (client) return client.focus();
-        return self.clients.openWindow(self.registration.scope);
-      })
+function putInCache(request, response) {
+  if (!response || !response.ok) return;
+  const sameOrigin = new URL(response.url).origin === self.location.origin;
+  if (!sameOrigin) return;
+  const copy = response.clone();
+  caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+}
+
+self.addEventListener("fetch", (event) => {
+  const request = event.request;
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.includes("/api/")) return; // API -> chỉ dùng mạng
+
+  // HTML: mạng trước, cache dự phòng.
+  if (isHtmlRequest(request, url)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          putInCache(request, response);
+          return response;
+        })
+        .catch(async () => {
+          const cached =
+            (await caches.match(request, { ignoreSearch: true })) ||
+            (await caches.match(BASE + "index.html", { ignoreSearch: true })) ||
+            (await caches.match(BASE, { ignoreSearch: true }));
+          if (cached) return cached;
+          return new Response("Offline", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        })
+    );
+    return;
+  }
+
+  // Tài sản tĩnh: cache trước, mạng sau (và tự bổ sung cache).
+  event.respondWith(
+    caches.match(request).then((cached) => {
+      if (cached) return cached;
+      return fetch(request)
+        .then((response) => {
+          putInCache(request, response);
+          return response;
+        })
+        .catch(() => caches.match(request, { ignoreSearch: true }));
+    })
   );
 });
