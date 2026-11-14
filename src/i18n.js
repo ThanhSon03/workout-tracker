@@ -545,6 +545,10 @@
     "Đã tick": "Ticked",
     "Tổng": "Total",
     "Chưa tập bài nào ngày này.": "No exercises done on this day.",
+    "Ngoại tuyến — dữ liệu vẫn được lưu": "Offline — data is still saved",
+    "Ngày trước": "Previous day",
+    "Ngày sau": "Next day",
+    "+ Thêm bài cho hôm nay": "+ Add today's exercise",
   };
 
   const zh = {
@@ -1082,6 +1086,10 @@
     "Đã tick": "已打卡",
     "Tổng": "总计",
     "Chưa tập bài nào ngày này.": "当天没有训练记录。",
+    "Ngoại tuyến — dữ liệu vẫn được lưu": "离线 — 数据仍会保存",
+    "Ngày trước": "前一天",
+    "Ngày sau": "后一天",
+    "+ Thêm bài cho hôm nay": "+ 添加今天的动作",
   };
 
   function detectLanguage() {

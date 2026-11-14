@@ -1472,6 +1472,7 @@ function initMobileNav() {
         $("#bodyCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
         return;
       }
+      if (target === currentView) window.scrollTo({ top: 0, behavior: "smooth" });
       setView(target);
       syncBottomNav(target);
     });
@@ -1558,6 +1559,17 @@ function initKeyboardNav() {
       if (!isField(document.activeElement)) document.body.classList.remove("input-focus");
     }, 120);
   });
+}
+
+function initConnectivity() {
+  const bar = $("#offlineBar");
+  if (!bar) return;
+  const update = () => {
+    bar.hidden = navigator.onLine;
+  };
+  window.addEventListener("online", update);
+  window.addEventListener("offline", update);
+  update();
 }
 
 let sheetHabitId = null;
@@ -1888,6 +1900,17 @@ function closeDayStats() {
   dayStats = null;
 }
 
+function shiftDayString(day, delta) {
+  const date = new Date(`${day}T00:00:00`);
+  date.setDate(date.getDate() + delta);
+  return isoDay(date);
+}
+
+async function stepDayStats(delta) {
+  if (!dayStats) return;
+  await openDayStats(shiftDayString(dayStats.day, delta));
+}
+
 async function restoreDayHabit(habitId) {
   if (!dayStats) return;
   const day = dayStats.day;
@@ -1911,6 +1934,8 @@ function initDayStats() {
   const sheet = $("#dayStats");
   if (!sheet) return;
   $("#dayStatsClose").addEventListener("click", closeDayStats);
+  $("#dayStatsPrev").addEventListener("click", () => stepDayStats(-1));
+  $("#dayStatsNext").addEventListener("click", () => stepDayStats(1));
   sheet.addEventListener("click", (event) => {
     if (event.target === sheet) closeDayStats();
   });
@@ -2087,6 +2112,14 @@ function initTodayAdd() {
       toast(error.message);
     }
   });
+
+  const more = $("#todayAddMore");
+  if (more) {
+    more.addEventListener("click", () => {
+      form.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => $("#todayAddName")?.focus(), 250);
+    });
+  }
 }
 
 function initTodayView() {
@@ -3613,6 +3646,7 @@ function stopRestTimer({ completed = false } = {}) {
   }
   restState.endAt = null;
   restState.completed = completed;
+  if (!focusOpen && !hiitState.running) releaseWakeLock();
   if (completed) renderRestUi(0, restState.duration, false);
   else renderRestUi(restState.duration, restState.duration, false);
 }
@@ -3781,6 +3815,7 @@ function startRestTimer(seconds, label = "") {
   restState.completed = false;
   restState.endAt = Date.now() + duration * 1000;
   tapFeedback();
+  requestWakeLock();
   const custom = $("#restCustom");
   if (custom) custom.value = duration;
   renderRestUi(duration, duration, true);
@@ -4565,6 +4600,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLogSheet();
   initTodayMenu();
   initDayStats();
+  initConnectivity();
   initUnits();
   initAddHabit();
   initWellness();

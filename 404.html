@@ -91,6 +91,7 @@
           <span class="today-count" id="todayCount"></span>
         </div>
         <ul class="today-list" id="todayList"></ul>
+        <button class="today-add-more" id="todayAddMore" type="button" data-i18n="+ Thêm bài cho hôm nay">+ Thêm bài cho hôm nay</button>
         <div class="today-rest">
           <div class="rest-head">
             <h2 data-i18n="Nghỉ">Nghỉ</h2>
@@ -507,6 +508,10 @@
       <nav class="month-tabs advanced" id="monthTabs" data-i18n-aria-label="Chọn tháng" aria-label="Chọn tháng"></nav>
     </main>
 
+    <div class="offline-bar" id="offlineBar" hidden>
+      <span data-i18n="Ngoại tuyến — dữ liệu vẫn được lưu">Ngoại tuyến — dữ liệu vẫn được lưu</span>
+    </div>
+
     <nav class="bottom-nav" id="bottomNav" aria-label="Điều hướng">
       <button class="bottom-btn active" type="button" data-bottom-view="month" aria-current="page">
         <span class="ico">▦</span>
@@ -582,7 +587,11 @@
       <div class="sheet day-sheet" role="dialog" aria-modal="true" aria-labelledby="dayStatsTitle">
         <div class="sheet-head">
           <h2 id="dayStatsTitle"></h2>
-          <button class="sheet-close" id="dayStatsClose" type="button" data-i18n-aria-label="Đóng" aria-label="Đóng">×</button>
+          <div class="sheet-head-actions">
+            <button class="day-nav" id="dayStatsPrev" type="button" data-i18n-aria-label="Ngày trước" aria-label="Ngày trước">‹</button>
+            <button class="day-nav" id="dayStatsNext" type="button" data-i18n-aria-label="Ngày sau" aria-label="Ngày sau">›</button>
+            <button class="sheet-close" id="dayStatsClose" type="button" data-i18n-aria-label="Đóng" aria-label="Đóng">×</button>
+          </div>
         </div>
         <div class="day-summary" id="dayStatsSummary"></div>
         <ul class="day-list" id="dayStatsList"></ul>
