@@ -358,6 +358,9 @@ function renderGrid(d) {
   );
   const skips = new Map((d.skips || []).map((row) => [row.day, row.reason]));
   const today = d.today;
+  const removedCells = new Set(
+    (d.habit_day_skips || []).map((row) => `${row.habit_id}|${row.day}`)
+  );
   const currentWeekIndex = d.weeks.findIndex((week) =>
     week.days.some((day) => day.day === today)
   );
@@ -411,7 +414,7 @@ function renderGrid(d) {
   html += "</tr><tr>";
   d.weeks.forEach((week, wi) => {
     week.days.forEach((day) => {
-      html += `<th class="daynum${day.day === d.today ? " today" : ""}${wi === currentWeekIndex ? " week-current" : ""}">${day.num}</th>`;
+      html += `<th class="daynum${day.day === d.today ? " today" : ""}${wi === currentWeekIndex ? " week-current" : ""}" data-day-stats="${day.day}" title="${esc(t("Thống kê ngày"))}">${day.num}</th>`;
     });
   });
   html += "</tr></thead><tbody>";
@@ -454,24 +457,28 @@ function renderGrid(d) {
         const scheduled = weekdays.includes(weekday);
         const isFuture = day.day > today;
         const isSkipped = skips.has(day.day);
+        const isRemoved = removedCells.has(`${habit.id}|${day.day}`);
         const checkClasses = ["check"];
         if (isDone) checkClasses.push("done");
         if (isDone && !scheduled) checkClasses.push("extra");
         if (log) checkClasses.push("logged");
-        const classes = [cellClasses(day.day, week, wi), scheduled ? "" : "off"].filter(Boolean).join(" ");
-        let title = isSkipped
-          ? t("Ngày nghỉ")
-          : isFuture
-            ? t("Chưa tới ngày này")
-            : scheduled
-              ? ""
-              : t("Ngoài lịch — không tính vào %");
+        if (isRemoved) checkClasses.push("excluded");
+        const classes = [cellClasses(day.day, week, wi), scheduled ? "" : "off", isRemoved ? "excluded-cell" : ""].filter(Boolean).join(" ");
+        let title = isRemoved
+          ? t("Đã bỏ khỏi ngày")
+          : isSkipped
+            ? t("Ngày nghỉ")
+            : isFuture
+              ? t("Chưa tới ngày này")
+              : scheduled
+                ? ""
+                : t("Ngoài lịch — không tính vào %");
         if (log && !isFuture && !isSkipped) {
           title = logTitle(habitsById.get(habit.id) || habit, log);
           if (!scheduled) title += ` (${t("Ngoài lịch")})`;
         }
         const titleAttr = title ? ` title="${esc(title)}"` : "";
-        html += `<td class="${classes}"><button class="${checkClasses.join(" ")}" data-habit="${habit.id}" data-day="${day.day}" aria-label="${esc(t("{name} ngày {day}", { name: habit.name, day: day.num }))}" aria-pressed="${isDone}"${isFuture || isSkipped ? " disabled" : ""}${titleAttr}></button></td>`;
+        html += `<td class="${classes}"><button class="${checkClasses.join(" ")}" data-habit="${habit.id}" data-day="${day.day}" aria-label="${esc(t("{name} ngày {day}", { name: habit.name, day: day.num }))}" aria-pressed="${isDone}"${isFuture || isSkipped || isRemoved ? " disabled" : ""}${titleAttr}></button></td>`;
       });
     });
     html += "</tr>";
@@ -1717,14 +1724,14 @@ function editTodayHabit() {
   }, 80);
 }
 
-async function deleteTodayHabit() {
+async function removeTodayHabit() {
   if (!state.data || !todayMenuHabitId) return;
   const habit = habitById(state.data).get(todayMenuHabitId);
   if (!habit) return;
-  if (!confirmText(t("Xoá bài tập này và toàn bộ lịch sử của nó?"))) return;
+  if (!confirmText(t("Bỏ bài này khỏi hôm nay? Lịch sử vẫn được giữ."))) return;
   try {
-    await post("/api/habits/delete", { id: habit.id });
-    toast(t("Đã xoá bài tập"));
+    await post("/api/habit-day/remove", { habit_id: habit.id, day: state.data.today });
+    toast(t("Đã bỏ khỏi hôm nay"));
     closeTodayMenu();
     await load();
   } catch (error) {
@@ -1737,12 +1744,189 @@ function initTodayMenu() {
   if (!menu) return;
   $("#todayMenuClose").addEventListener("click", closeTodayMenu);
   $("#todayMenuEdit").addEventListener("click", editTodayHabit);
-  $("#todayMenuDelete").addEventListener("click", deleteTodayHabit);
+  $("#todayMenuDelete").addEventListener("click", removeTodayHabit);
   menu.addEventListener("click", (event) => {
     if (event.target === menu) closeTodayMenu();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !menu.hidden) closeTodayMenu();
+  });
+}
+
+let dayStats = null;
+
+function fullDayLabel(day) {
+  const date = new Date(`${day}T00:00:00`);
+  const text = new Intl.DateTimeFormat(LOCALE(), {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+async function dataForDay(day) {
+  const [year, month] = day.split("-").map(Number);
+  if (state.data && state.data.year === year && state.data.month === month) {
+    return state.data;
+  }
+  const payload = await api(`/api/state?year=${year}&month=${month}`);
+  return payload.state;
+}
+
+async function openDayStats(day) {
+  try {
+    const data = await dataForDay(day);
+    dayStats = { day, data };
+    renderDayStats();
+    const sheet = $("#dayStats");
+    if (sheet) sheet.hidden = false;
+    document.body.classList.add("sheet-open");
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function renderDayStats() {
+  if (!dayStats) return;
+  const { day, data } = dayStats;
+  const title = $("#dayStatsTitle");
+  if (title) title.textContent = fullDayLabel(day);
+
+  const habits = habitById(data);
+  const done = new Set(
+    (data.entries || []).filter(([, value]) => value === day).map(([id]) => Number(id))
+  );
+  const logs = new Map(
+    (data.logs || []).filter((row) => row.day === day).map((row) => [row.habit_id, row])
+  );
+  const removed = new Set(
+    (data.habit_day_skips || [])
+      .filter((row) => row.day === day)
+      .map((row) => Number(row.habit_id))
+  );
+  const restDay = (data.skips || []).some((row) => row.day === day);
+  const weekday = (new Date(`${day}T00:00:00`).getDay() + 6) % 7;
+  const scheduled = (data.habits || []).filter((habit) =>
+    (Array.isArray(habit.weekdays) ? habit.weekdays : ALL_DAYS).includes(weekday)
+  );
+
+  const ids = new Set([
+    ...scheduled.map((habit) => habit.id),
+    ...done,
+    ...logs.keys(),
+    ...removed,
+  ]);
+  const items = [...ids]
+    .map((id) => habits.get(id))
+    .filter(Boolean)
+    .map((habit) => ({
+      habit,
+      done: done.has(habit.id),
+      log: logs.get(habit.id),
+      removed: removed.has(habit.id),
+    }))
+    .sort(
+      (a, b) => Number(b.done) - Number(a.done) || a.habit.name.localeCompare(b.habit.name)
+    );
+
+  const doneCount = items.filter((item) => item.done && !item.removed).length;
+  const scheduledIds = new Set(scheduled.map((habit) => habit.id));
+  const extraDone = items.filter(
+    (item) => (item.done || item.log) && !item.removed && !scheduledIds.has(item.habit.id)
+  ).length;
+  const total = scheduled.filter((habit) => !removed.has(habit.id)).length + extraDone;
+  const dayLogs = (data.logs || []).filter((row) => row.day === day);
+  const volume = dayLogs.reduce((sum, row) => sum + (Number(row.volume) || 0), 0);
+  const km = dayLogs.reduce((sum, row) => sum + (Number(row.distance_km) || 0), 0);
+  const minutes = dayLogs.reduce((sum, row) => sum + (Number(row.duration_min) || 0), 0);
+
+  const chips = [];
+  chips.push(
+    `<span class="day-chip">${esc(t("{done}/{total} bài", { done: doneCount, total }))}</span>`
+  );
+  if (volume > 0) chips.push(`<span class="day-chip">${esc(t("Tổng"))} ${esc(fmtVolume(volume))}</span>`);
+  if (km > 0 || minutes > 0) {
+    chips.push(
+      `<span class="day-chip">${esc(fmtDistance(km))} · ${esc(fmtNum(minutes))} ${esc(t("phút"))}</span>`
+    );
+  }
+  if (restDay) chips.push(`<span class="day-chip">${esc(t("Ngày nghỉ"))}</span>`);
+  const summary = $("#dayStatsSummary");
+  if (summary) summary.innerHTML = chips.join("");
+
+  const list = $("#dayStatsList");
+  if (!list) return;
+  if (!items.length) {
+    list.innerHTML = `<li class="day-empty">${esc(t("Chưa tập bài nào ngày này."))}</li>`;
+    return;
+  }
+  list.innerHTML = items
+    .map(({ habit, done: isDone, log, removed: isRemoved }) => {
+      const meta = isRemoved
+        ? t("Đã bỏ khỏi ngày")
+        : todayLogText(habit, log) || (isDone ? t("Đã tick") : t("Chưa tập"));
+      const restore = isRemoved
+        ? `<button class="day-restore" type="button" data-day-restore="${habit.id}">${esc(t("Khôi phục"))}</button>`
+        : "";
+      return `<li class="day-row${isDone ? " done" : ""}${isRemoved ? " excluded" : ""}">
+        <span class="day-check">${isDone ? "✓" : ""}</span>
+        <div class="day-main">
+          <span class="day-name">${esc(habit.emoji)} ${esc(habit.name)}</span>
+          <span class="day-meta">${esc(meta)}</span>
+        </div>
+        ${restore}
+      </li>`;
+    })
+    .join("");
+}
+
+function closeDayStats() {
+  const sheet = $("#dayStats");
+  if (sheet) sheet.hidden = true;
+  document.body.classList.remove("sheet-open");
+  dayStats = null;
+}
+
+async function restoreDayHabit(habitId) {
+  if (!dayStats) return;
+  const day = dayStats.day;
+  try {
+    await post("/api/habit-day/restore", { habit_id: habitId, day });
+    toast(t("Đã khôi phục"));
+    const [year, month] = day.split("-").map(Number);
+    const payload = await api(`/api/state?year=${year}&month=${month}`);
+    if (state.data && state.data.year === year && state.data.month === month) {
+      state.data = payload.state;
+      render();
+    }
+    dayStats = { day, data: payload.state };
+    renderDayStats();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function initDayStats() {
+  const sheet = $("#dayStats");
+  if (!sheet) return;
+  $("#dayStatsClose").addEventListener("click", closeDayStats);
+  sheet.addEventListener("click", (event) => {
+    if (event.target === sheet) closeDayStats();
+  });
+  $("#todayStatsBtn").addEventListener("click", () => {
+    if (state.data) openDayStats(state.data.today);
+  });
+  $("#habitGrid").addEventListener("click", (event) => {
+    const cell = event.target.closest("[data-day-stats]");
+    if (cell) openDayStats(cell.dataset.dayStats);
+  });
+  $("#dayStatsList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-day-restore]");
+    if (button) restoreDayHabit(Number(button.dataset.dayRestore));
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !sheet.hidden) closeDayStats();
   });
 }
 
@@ -1774,7 +1958,13 @@ function todayDoneSet(d) {
 function todayHabits(d) {
   const weekday = todayWeekday(d);
   const done = todayDoneSet(d);
+  const removed = new Set(
+    (d.habit_day_skips || [])
+      .filter((row) => row.day === d.today)
+      .map((row) => Number(row.habit_id))
+  );
   return (d.habits || []).filter((habit) => {
+    if (removed.has(habit.id)) return false;
     const days = Array.isArray(habit.weekdays) ? habit.weekdays : ALL_DAYS;
     return days.includes(weekday) || done.has(habit.id);
   });
@@ -4374,6 +4564,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initKeyboardNav();
   initLogSheet();
   initTodayMenu();
+  initDayStats();
   initUnits();
   initAddHabit();
   initWellness();

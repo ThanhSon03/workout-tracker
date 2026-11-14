@@ -533,6 +533,18 @@
     "Nhập số km": "Enter distance in km",
     "Nhập số phút": "Enter minutes",
     "Thao tác": "Actions",
+    "Thống kê": "Summary",
+    "Thống kê ngày": "Day summary",
+    "Bỏ khỏi hôm nay": "Remove from today",
+    "Bỏ bài này khỏi hôm nay? Lịch sử vẫn được giữ.":
+      "Remove this exercise from today? History is kept.",
+    "Đã bỏ khỏi hôm nay": "Removed from today",
+    "Đã bỏ khỏi ngày": "Removed from this day",
+    "Đã khôi phục": "Restored",
+    "Chưa tập": "Not done",
+    "Đã tick": "Ticked",
+    "Tổng": "Total",
+    "Chưa tập bài nào ngày này.": "No exercises done on this day.",
   };
 
   const zh = {
@@ -1058,6 +1070,18 @@
     "Nhập số km": "请输入公里数",
     "Nhập số phút": "请输入分钟数",
     "Thao tác": "操作",
+    "Thống kê": "统计",
+    "Thống kê ngày": "每日统计",
+    "Bỏ khỏi hôm nay": "从今天移除",
+    "Bỏ bài này khỏi hôm nay? Lịch sử vẫn được giữ.":
+      "从今天移除这个动作？历史记录会保留。",
+    "Đã bỏ khỏi hôm nay": "已从今天移除",
+    "Đã bỏ khỏi ngày": "已从当天移除",
+    "Đã khôi phục": "已恢复",
+    "Chưa tập": "未训练",
+    "Đã tick": "已打卡",
+    "Tổng": "总计",
+    "Chưa tập bài nào ngày này.": "当天没有训练记录。",
   };
 
   function detectLanguage() {

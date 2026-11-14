@@ -72,7 +72,10 @@
       <section class="card today-view" id="todayView" hidden>
         <div class="card-head">
           <h2 data-i18n="Hôm nay">Hôm nay</h2>
-          <span class="hint" id="todayViewDate"></span>
+          <div class="head-side">
+            <span class="hint" id="todayViewDate"></span>
+            <button class="today-stats-btn" id="todayStatsBtn" type="button" data-i18n="Thống kê">Thống kê</button>
+          </div>
         </div>
         <form class="today-add" id="todayAddForm">
           <input id="todayAddName" maxlength="80" data-i18n-placeholder="Tên bài tập mới…" placeholder="Tên bài tập mới…" data-i18n-aria-label="Tên bài tập" aria-label="Tên bài tập" required />
@@ -575,6 +578,17 @@
       </div>
     </div>
 
+    <div class="sheet-backdrop" id="dayStats" hidden>
+      <div class="sheet day-sheet" role="dialog" aria-modal="true" aria-labelledby="dayStatsTitle">
+        <div class="sheet-head">
+          <h2 id="dayStatsTitle"></h2>
+          <button class="sheet-close" id="dayStatsClose" type="button" data-i18n-aria-label="Đóng" aria-label="Đóng">×</button>
+        </div>
+        <div class="day-summary" id="dayStatsSummary"></div>
+        <ul class="day-list" id="dayStatsList"></ul>
+      </div>
+    </div>
+
     <div class="sheet-backdrop" id="todayMenu" hidden>
       <div class="sheet menu-sheet" role="dialog" aria-modal="true" aria-labelledby="todayMenuTitle">
         <div class="sheet-head">
@@ -588,7 +602,7 @@
           </button>
           <button class="menu-btn danger" id="todayMenuDelete" type="button">
             <span class="menu-ico">×</span>
-            <span data-i18n="Xoá bài tập">Xoá bài tập</span>
+            <span data-i18n="Bỏ khỏi hôm nay">Bỏ khỏi hôm nay</span>
           </button>
         </div>
       </div>
