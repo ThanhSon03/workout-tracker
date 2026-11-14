@@ -28,7 +28,8 @@
         <h1>Workout Tracker</h1>
         <span class="brand-sub" data-i18n="cách nhàm chán">cách nhàm chán</span>
       </div>
-      <div class="topbar-controls">
+      <button class="mobile-settings" id="mobileSettings" type="button" aria-expanded="false" aria-controls="topbarControls" data-i18n-title="Cài đặt" data-i18n-aria-label="Cài đặt" title="Cài đặt" aria-label="Cài đặt">⚙</button>
+      <div class="topbar-controls" id="topbarControls">
         <div class="view-switch" role="group" data-i18n-aria-label="Chế độ xem" aria-label="Chế độ xem">
           <button class="view-btn active" id="viewMonth" type="button" data-view="month" aria-pressed="true" data-i18n="Tháng">Tháng</button>
           <button class="view-btn" id="viewToday" type="button" data-view="today" aria-pressed="false" data-i18n="Hôm nay">Hôm nay</button>
@@ -360,6 +361,16 @@
           <span class="hint" id="bodyHint"></span>
         </div>
         <div class="body-summary" id="bodySummary"></div>
+        <div class="body-goal">
+          <label class="field">
+            <span id="bodyGoalLabel" data-i18n="Cân nặng mục tiêu">Cân nặng mục tiêu</span>
+            <input type="number" id="bodyGoal" min="0" max="1000" step="0.1" placeholder="65" />
+          </label>
+          <label class="field">
+            <span id="bodyHeightLabel" data-i18n="Chiều cao">Chiều cao</span>
+            <input type="number" id="bodyHeight" min="0" max="300" step="0.1" placeholder="170" />
+          </label>
+        </div>
         <div class="chart body-chart" id="bodyChart"></div>
         <form class="body-form" id="bodyForm">
           <label class="field">
@@ -475,6 +486,21 @@
 
       <nav class="month-tabs" id="monthTabs" data-i18n-aria-label="Chọn tháng" aria-label="Chọn tháng"></nav>
     </main>
+
+    <nav class="bottom-nav" id="bottomNav" aria-label="Điều hướng">
+      <button class="bottom-btn active" type="button" data-bottom-view="month" aria-current="page">
+        <span class="ico">▦</span>
+        <span data-i18n="Tháng">Tháng</span>
+      </button>
+      <button class="bottom-btn" type="button" data-bottom-view="today">
+        <span class="ico">◎</span>
+        <span data-i18n="Hôm nay">Hôm nay</span>
+      </button>
+      <button class="bottom-btn" type="button" data-bottom-view="body">
+        <span class="ico">⚖</span>
+        <span data-i18n="Cơ thể">Cơ thể</span>
+      </button>
+    </nav>
 
     <button class="focus-fab" id="focusFab" type="button" hidden>
       <span class="fab-dot"></span>

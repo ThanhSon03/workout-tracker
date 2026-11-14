@@ -908,6 +908,68 @@ const BODY_MEASURES = [
   ["neck_cm", "Vòng cổ", "bodyNeck"],
 ];
 
+const WEIGHT_GOAL_KEY = "wt-weight-goal";
+const HEIGHT_KEY = "wt-height-cm";
+
+function readStoredNumber(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredNumber(key, value) {
+  try {
+    if (value == null) localStorage.removeItem(key);
+    else localStorage.setItem(key, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+let weightGoalKg = readStoredNumber(WEIGHT_GOAL_KEY);
+let heightCm = readStoredNumber(HEIGHT_KEY);
+
+function isoDay(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function shiftDay(day, delta) {
+  const date = new Date(`${day}T00:00:00`);
+  date.setDate(date.getDate() + delta);
+  return isoDay(date);
+}
+
+function averageWeight(entries, startDay, endDay) {
+  const rows = entries.filter(
+    (row) => row.weight_kg != null && row.day >= startDay && row.day <= endDay
+  );
+  if (!rows.length) return null;
+  return rows.reduce((sum, row) => sum + row.weight_kg, 0) / rows.length;
+}
+
+function bmiInfo(entries) {
+  if (!heightCm) return null;
+  const latest = [...entries].reverse().find((row) => row.weight_kg != null);
+  if (!latest) return null;
+  const meters = heightCm / 100;
+  if (!meters) return null;
+  const value = latest.weight_kg / (meters * meters);
+  const label =
+    value < 18.5
+      ? "Gầy"
+      : value < 25
+        ? "Bình thường"
+        : value < 30
+          ? "Thừa cân"
+          : "Béo phì";
+  return { value, label };
+}
+
 function bodyEntries() {
   return (state.body || []).slice().sort((a, b) => String(a.day).localeCompare(String(b.day)));
 }
@@ -941,21 +1003,73 @@ function renderBodySummary(entries) {
   }
 
   const latest = entries[entries.length - 1];
+  const latestWeight = [...entries].reverse().find((row) => row.weight_kg != null) || null;
   const cards = [];
 
-  if (latest.weight_kg != null) {
-    const previous = previousWeightEntry(entries, latest);
+  if (latestWeight) {
+    const previous = previousWeightEntry(entries, latestWeight);
     let delta = "";
     if (previous) {
-      const diff = latest.weight_kg - previous.weight_kg;
+      const diff = latestWeight.weight_kg - previous.weight_kg;
       const cls = diff > 0 ? " up" : diff < 0 ? " down" : "";
       const sign = diff > 0 ? "+" : diff < 0 ? "−" : "";
       delta = `<span class="body-delta${cls}">${sign}${fmtWeight(Math.abs(diff))}</span>`;
     }
     cards.push(
       `<div class="body-stat"><span class="k">${esc(t("Cân nặng"))}</span><span class="v">${esc(
-        fmtWeight(latest.weight_kg)
+        fmtWeight(latestWeight.weight_kg)
       )}</span>${delta}</div>`
+    );
+  }
+
+  if (latestWeight && weightGoalKg != null) {
+    const diff = latestWeight.weight_kg - weightGoalKg;
+    let note;
+    if (Math.abs(diff) <= 0.2) {
+      note = `<span class="body-delta down">${esc(t("Đã đạt mục tiêu"))}</span>`;
+    } else if (diff > 0) {
+      note = `<span class="body-delta">${esc(t("Còn {value}", { value: fmtWeight(diff) }))}</span>`;
+    } else {
+      note = `<span class="body-delta">${esc(
+        t("Cần tăng {value}", { value: fmtWeight(Math.abs(diff)) })
+      )}</span>`;
+    }
+    cards.push(
+      `<div class="body-stat goal"><span class="k">${esc(t("Mục tiêu"))}</span><span class="v">${esc(
+        fmtWeight(weightGoalKg)
+      )}</span>${note}</div>`
+    );
+  }
+
+  if (latestWeight) {
+    const avg = averageWeight(entries, shiftDay(latestWeight.day, -6), latestWeight.day);
+    const prevAvg = averageWeight(
+      entries,
+      shiftDay(latestWeight.day, -13),
+      shiftDay(latestWeight.day, -7)
+    );
+    if (avg != null) {
+      let delta = "";
+      if (prevAvg != null) {
+        const diff = avg - prevAvg;
+        const cls = diff > 0 ? " up" : diff < 0 ? " down" : "";
+        const sign = diff > 0 ? "+" : diff < 0 ? "−" : "";
+        delta = `<span class="body-delta${cls}">${sign}${fmtWeight(Math.abs(diff))}</span>`;
+      }
+      cards.push(
+        `<div class="body-stat"><span class="k">${esc(t("TB 7 ngày"))}</span><span class="v">${esc(
+          fmtWeight(avg)
+        )}</span>${delta}</div>`
+      );
+    }
+  }
+
+  const bmi = bmiInfo(entries);
+  if (bmi) {
+    cards.push(
+      `<div class="body-stat"><span class="k">BMI</span><span class="v">${esc(
+        fmtNum(bmi.value)
+      )}</span><span class="body-delta">${esc(t(bmi.label))}</span></div>`
     );
   }
 
@@ -997,8 +1111,10 @@ function renderBodyChart(entries) {
   }
 
   const values = points.map((row) => weightFromKg(row.weight_kg));
-  let min = Math.min(...values);
-  let max = Math.max(...values);
+  const goalValue = weightGoalKg != null ? weightFromKg(weightGoalKg) : null;
+  const domain = goalValue != null ? values.concat(goalValue) : values;
+  let min = Math.min(...domain);
+  let max = Math.max(...domain);
   if (max - min < 1) {
     const mid = (max + min) / 2;
     min = mid - 0.5;
@@ -1033,6 +1149,35 @@ function renderBodyChart(entries) {
   points.forEach((row, index) => {
     path += `${index === 0 ? "M" : "L"}${x(index).toFixed(1)},${y(weightFromKg(row.weight_kg)).toFixed(1)} `;
   });
+
+  const avgValues = points.map((row) => {
+    const avg = averageWeight(entries, shiftDay(row.day, -6), row.day);
+    return avg == null ? null : weightFromKg(avg);
+  });
+  let avgPath = "";
+  let avgOpen = false;
+  avgValues.forEach((value, index) => {
+    if (value == null) {
+      avgOpen = false;
+      return;
+    }
+    avgPath += `${avgOpen ? "L" : "M"}${x(index).toFixed(1)},${y(value).toFixed(1)} `;
+    avgOpen = true;
+  });
+  if (avgPath) parts.push(`<path class="line-body-avg" d="${avgPath.trim()}"/>`);
+
+  if (goalValue != null) {
+    const gy = y(goalValue);
+    parts.push(
+      `<line class="goal-line" x1="${pad.l}" x2="${W - pad.r}" y1="${gy.toFixed(1)}" y2="${gy.toFixed(1)}"/>`
+    );
+    parts.push(
+      `<text class="goal-label" x="${W - pad.r}" y="${(gy - 5).toFixed(1)}" text-anchor="end">${esc(
+        `${t("Mục tiêu")} ${fmtWeight(weightGoalKg)}`
+      )}</text>`
+    );
+  }
+
   parts.push(`<path class="line-body" d="${path.trim()}"/>`);
 
   points.forEach((row, index) => {
@@ -1049,7 +1194,11 @@ function renderBodyChart(entries) {
     }
   });
 
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`;
+  const legend = [`<span><i class="avg"></i>${esc(t("TB 7 ngày"))}</span>`];
+  if (goalValue != null) legend.unshift(`<span><i class="goal"></i>${esc(t("Mục tiêu"))}</span>`);
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${parts.join("")}</svg><div class="body-legend">${legend.join(
+    ""
+  )}</div>`;
 }
 
 function renderBodyList(entries) {
@@ -1105,6 +1254,27 @@ function initBody() {
   const dayInput = $("#bodyDay");
   prefillBody(localISODate());
   dayInput.addEventListener("change", () => prefillBody(dayInput.value));
+
+  const goalInput = $("#bodyGoal");
+  const heightInput = $("#bodyHeight");
+  if (goalInput) goalInput.value = weightGoalKg != null ? displayWeight(weightGoalKg) : "";
+  if (heightInput) heightInput.value = heightCm != null ? displayLength(heightCm) : "";
+  if (goalInput) {
+    goalInput.addEventListener("change", () => {
+      const value = Number(goalInput.value);
+      weightGoalKg = value > 0 ? weightToKg(value) : null;
+      saveStoredNumber(WEIGHT_GOAL_KEY, weightGoalKg);
+      renderBody();
+    });
+  }
+  if (heightInput) {
+    heightInput.addEventListener("change", () => {
+      const value = Number(heightInput.value);
+      heightCm = value > 0 ? lengthToCm(value) : null;
+      saveStoredNumber(HEIGHT_KEY, heightCm);
+      renderBody();
+    });
+  }
 
   const valueOf = (selector) => {
     const node = $(selector);
@@ -1252,6 +1422,45 @@ function applyView(view) {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+  syncBottomNav();
+}
+
+function syncBottomNav(active) {
+  const target = active || (currentView === "today" ? "today" : "month");
+  document.querySelectorAll("[data-bottom-view]").forEach((button) => {
+    const on = button.dataset.bottomView === target;
+    button.classList.toggle("active", on);
+    if (on) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+}
+
+function initMobileNav() {
+  const bar = document.querySelector(".topbar");
+  const settings = $("#mobileSettings");
+  if (settings && bar) {
+    settings.addEventListener("click", () => {
+      const open = bar.classList.toggle("settings-open");
+      settings.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+
+  document.querySelectorAll("[data-bottom-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = button.dataset.bottomView;
+      if (bar) bar.classList.remove("settings-open");
+      if (settings) settings.setAttribute("aria-expanded", "false");
+      if (target === "body") {
+        setView("month");
+        syncBottomNav("body");
+        $("#bodyCard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+      setView(target);
+      syncBottomNav(target);
+    });
+  });
+  syncBottomNav();
 }
 
 function setView(view) {
@@ -1436,6 +1645,8 @@ function initUnits() {
     const distance = Number($("#logKm")?.value);
     const bodyWeight = Number($("#bodyWeight")?.value);
     const bodyLengths = BODY_MEASURES.map(([, , id]) => Number($(`#${id}`)?.value));
+    const bodyGoal = Number($("#bodyGoal")?.value);
+    const bodyHeight = Number($("#bodyHeight")?.value);
     units = next;
     try {
       localStorage.setItem(UNITS_KEY, units);
@@ -1470,6 +1681,18 @@ function initUnits() {
         );
       }
     });
+    if (bodyGoal > 0) {
+      $("#bodyGoal").value = roundTo(
+        wasImperial ? bodyGoal * KG_PER_LB : bodyGoal / KG_PER_LB,
+        1
+      );
+    }
+    if (bodyHeight > 0) {
+      $("#bodyHeight").value = roundTo(
+        wasImperial ? bodyHeight * CM_PER_IN : bodyHeight / CM_PER_IN,
+        1
+      );
+    }
     if (state.data) render();
     toast(imperial() ? t("Đã đổi sang lb · mi") : t("Đã đổi sang kg · km"));
   });
@@ -1495,6 +1718,10 @@ function updateUnitControls() {
   }
   const bodyWeightLabel = $("#bodyWeightLabel");
   if (bodyWeightLabel) bodyWeightLabel.textContent = `${t("Cân nặng")} (${weightUnit()})`;
+  const bodyGoalLabel = $("#bodyGoalLabel");
+  if (bodyGoalLabel) bodyGoalLabel.textContent = `${t("Cân nặng mục tiêu")} (${weightUnit()})`;
+  const bodyHeightLabel = $("#bodyHeightLabel");
+  if (bodyHeightLabel) bodyHeightLabel.textContent = `${t("Chiều cao")} (${lengthUnit()})`;
   for (const [, label, id] of BODY_MEASURES) {
     const node = $(`#${id}Label`);
     if (node) node.textContent = `${t(label)} (${lengthUnit()})`;
@@ -3794,6 +4021,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRoutines();
   initFocusMode();
   initTodayView();
+  initMobileNav();
   initUnits();
   initAddHabit();
   initWellness();

@@ -3,7 +3,7 @@
    - HTML / Ä‘iá»u hÆ°á»›ng: network-first (luÃ´n Æ°u tiÃªn báº£n má»›i), offline thÃ¬ láº¥y cache.
    - TÃ i sáº£n tÄ©nh (JS, CSS, wasm, iconâ€¦): cache-first, ná»n táº£ng cho táº£i láº¡i gáº§n nhÆ° tá»©c thÃ¬.
 */
-const CACHE = "workout-tracker-v18";
+const CACHE = "workout-tracker-v19";
 const BASE = new URL("./", self.location.href).href;
 const BASE_PATH = new URL(BASE).pathname;
 

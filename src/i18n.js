@@ -511,6 +511,17 @@
     "Có bản cập nhật": "Update available",
     "Tải lại": "Reload",
     "Đóng": "Close",
+    "Cài đặt": "Settings",
+    "Cân nặng mục tiêu": "Target weight",
+    "Chiều cao": "Height",
+    "TB 7 ngày": "7-day avg",
+    "Đã đạt mục tiêu": "Goal reached",
+    "Còn {value}": "{value} to go",
+    "Cần tăng {value}": "Gain {value}",
+    "Gầy": "Underweight",
+    "Bình thường": "Normal",
+    "Thừa cân": "Overweight",
+    "Béo phì": "Obese",
   };
 
   const zh = {
@@ -1014,6 +1025,17 @@
     "Có bản cập nhật": "有新版本",
     "Tải lại": "重新加载",
     "Đóng": "关闭",
+    "Cài đặt": "设置",
+    "Cân nặng mục tiêu": "目标体重",
+    "Chiều cao": "身高",
+    "TB 7 ngày": "7 天平均",
+    "Đã đạt mục tiêu": "已达到目标",
+    "Còn {value}": "还差 {value}",
+    "Cần tăng {value}": "需增加 {value}",
+    "Gầy": "偏瘦",
+    "Bình thường": "正常",
+    "Thừa cân": "超重",
+    "Béo phì": "肥胖",
   };
 
   function detectLanguage() {
