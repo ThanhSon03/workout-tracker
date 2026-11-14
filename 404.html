@@ -74,6 +74,15 @@
           <h2 data-i18n="Hôm nay">Hôm nay</h2>
           <span class="hint" id="todayViewDate"></span>
         </div>
+        <form class="today-add" id="todayAddForm">
+          <input id="todayAddName" maxlength="80" data-i18n-placeholder="Tên bài tập mới…" placeholder="Tên bài tập mới…" data-i18n-aria-label="Tên bài tập" aria-label="Tên bài tập" required />
+          <select id="todayAddKind" data-i18n-aria-label="Loại bài tập" aria-label="Loại bài tập">
+            <option value="strength" data-i18n="🏋️ Tạ">🏋️ Tạ</option>
+            <option value="cardio" data-i18n="🚴 Cardio">🚴 Cardio</option>
+            <option value="run" data-i18n="🏃 Chạy bộ">🏃 Chạy bộ</option>
+          </select>
+          <button class="btn" type="submit" data-i18n="+ Thêm">+ Thêm</button>
+        </form>
         <div class="today-progress">
           <span class="progress-track"><span id="todayProgressFill"></span></span>
           <span class="today-count" id="todayCount"></span>

@@ -522,6 +522,11 @@
     "Bình thường": "Normal",
     "Thừa cân": "Overweight",
     "Béo phì": "Obese",
+    "+ Thêm": "+ Add",
+    "Đã thêm bài cho hôm nay": "Added to today",
+    "🏋️ Tạ": "🏋️ Weights",
+    "🚴 Cardio": "🚴 Cardio",
+    "🏃 Chạy bộ": "🏃 Running",
   };
 
   const zh = {
@@ -1036,6 +1041,11 @@
     "Bình thường": "正常",
     "Thừa cân": "超重",
     "Béo phì": "肥胖",
+    "+ Thêm": "+ 添加",
+    "Đã thêm bài cho hôm nay": "已添加到今天",
+    "🏋️ Tạ": "🏋️ 力量",
+    "🚴 Cardio": "🚴 有氧",
+    "🏃 Chạy bộ": "🏃 跑步",
   };
 
   function detectLanguage() {

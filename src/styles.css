@@ -562,6 +562,25 @@ body[data-view="today"] .board > section:not(.today-view) { display: none; }
 .today-rest { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .today-rest .rest-presets { align-items: center; }
 
+/* ---------- add exercise for today ---------- */
+.today-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.today-add input,
+.today-add select {
+  background: #fbfaf5; color: var(--ink); border: 1px solid var(--line-strong);
+  border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 12px; min-height: 36px;
+}
+.today-add input { flex: 1 1 150px; min-width: 0; }
+.today-add select { flex: 0 0 118px; }
+.today-add .btn { flex: 0 0 auto; padding: 8px 12px; font-size: 11px; }
+[data-theme="dark"] .today-add input,
+[data-theme="dark"] .today-add select { background: #0d0d10; color: var(--ink); border-color: #33333a; }
+@media (max-width: 720px) {
+  .today-add { gap: 6px; margin-bottom: 8px; }
+  .today-add input { flex: 1 1 100%; }
+  .today-add select { flex: 1 1 100px; }
+  .today-add .btn { flex: 0 0 auto; min-height: 36px; }
+}
+
 [data-theme="dark"] .today-item { background: #0d0d10; border-color: #33333a; }
 [data-theme="dark"] .today-item.done { border-color: var(--accent); }
 [data-theme="dark"] .today-check { background: #0d0d10; border-color: #6d6a61; color: #000; }
@@ -1103,4 +1122,30 @@ body.focus-open { overflow: hidden; }
   .toast { bottom: 86px; }
   .update-banner { bottom: 86px; }
   .focus-fab { bottom: 84px; }
+}
+
+/* ---------- compact mobile cards ---------- */
+@media (max-width: 720px) {
+  .app { padding: 8px 8px 82px; }
+  .board { gap: 9px; }
+  .card { padding: 10px 11px 11px; border-radius: 10px; }
+  .card-head { margin-bottom: 7px; gap: 8px; }
+  .card-head h2 { font-size: 10.5px; letter-spacing: .12em; padding-bottom: 3px; }
+  .hint { font-size: 10px; }
+  .slogan { margin: -2px 0 10px; padding: 7px 10px; gap: 8px; }
+  .slogan-quote {
+    font-size: 11px; line-height: 1.45; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .slogan-values { display: none; }
+  .chart { min-height: 96px; }
+  .today-item { padding: 8px 10px; gap: 8px; }
+  .today-check { width: 30px; height: 30px; font-size: 14px; }
+  .today-name { font-size: 13px; }
+  .today-meta { font-size: 10.5px; }
+  .body-stat { padding: 6px 9px; min-width: 90px; }
+  .body-stat .v { font-size: 15px; }
+  .body-form, .body-goal { gap: 8px; }
+  .field select, .field input { min-height: 34px; }
+  .month-tabs { gap: 5px; }
 }

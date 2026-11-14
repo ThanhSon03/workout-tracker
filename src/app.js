@@ -1576,6 +1576,39 @@ function renderTodayView(d) {
     .join("");
 }
 
+function initTodayAdd() {
+  const form = $("#todayAddForm");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const name = $("#todayAddName").value.trim();
+    if (!name) return;
+    const choice = $("#todayAddKind").value;
+    const config =
+      choice === "strength"
+        ? { emoji: "🏋️", kind: "strength", rest: 90 }
+        : choice === "run"
+          ? { emoji: "🏃", kind: "cardio", rest: 0 }
+          : { emoji: "🚴", kind: "cardio", rest: 0 };
+    const today = state.data?.today || localISODate();
+    const weekday = (new Date(`${today}T00:00:00`).getDay() + 6) % 7;
+    try {
+      await post("/api/habits", {
+        name,
+        emoji: config.emoji,
+        weekdays: [weekday],
+        kind: config.kind,
+        rest_sec: config.rest,
+      });
+      form.reset();
+      toast(t("Đã thêm bài cho hôm nay"));
+      await load();
+    } catch (error) {
+      toast(error.message);
+    }
+  });
+}
+
 function initTodayView() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => setView(button.dataset.view));
@@ -1609,12 +1642,8 @@ function initTodayView() {
       const habitId = Number(toggle.dataset.todayToggle);
       const day = state.data.today;
       toggle.disabled = true;
-      prepareRestAlerts();
       try {
-        const result = await post("/api/toggle", { habit_id: habitId, day });
-        const habit = habitById(state.data).get(habitId);
-        const seconds = result.done ? startHabitRest(habit) : 0;
-        if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
+        await post("/api/toggle", { habit_id: habitId, day });
         await load();
       } catch (error) {
         toggle.disabled = false;
@@ -2231,12 +2260,8 @@ function initFocusMode() {
       const session = sessionOf(routine || {});
       const day = toggle.dataset.sessionDay || session?.day || state.data.today;
       toggle.disabled = true;
-      prepareRestAlerts();
       try {
-        const result = await post("/api/toggle", { habit_id: habitId, day });
-        const habit = habitById(state.data).get(habitId);
-        const seconds = result.done ? startHabitRest(habit) : 0;
-        if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
+        await post("/api/toggle", { habit_id: habitId, day });
         await load();
         const fresh = focusedRoutine(state.data || {});
         const freshSession = sessionOf(fresh || {});
@@ -2579,12 +2604,8 @@ async function handleRoutineClick(event) {
     const habitId = Number(toggle.dataset.sessionToggle);
     const day = toggle.dataset.sessionDay || state.data.today;
     toggle.disabled = true;
-    prepareRestAlerts();
     try {
-      const result = await post("/api/toggle", { habit_id: habitId, day });
-      const habit = habitById(state.data).get(habitId);
-      const seconds = result.done ? startHabitRest(habit) : 0;
-      if (seconds) toast(t("Nghỉ {n} giây · {name}", { n: seconds, name: habit.name }));
+      await post("/api/toggle", { habit_id: habitId, day });
       await load();
       const fresh = (state.data?.routines || []).find((routine) =>
         (routine.items || []).some((item) => item.habit_id === habitId)
@@ -2937,7 +2958,6 @@ function initWorkout() {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    prepareRestAlerts();
     const habitId = Number($("#logHabit").value);
     if (!habitId) {
       toast("Chưa có bài tập để log");
@@ -2964,8 +2984,7 @@ function initWorkout() {
     }
     try {
       await post("/api/logs", body);
-      const rest = startHabitRest(habit);
-      toast(rest ? t("Đã lưu · nghỉ {n} giây", { n: rest }) : t("Đã lưu buổi tập"));
+      toast(t("Đã lưu buổi tập"));
       $("#logNote").value = "";
       $("#logRpe").value = "";
       setLogPrefilled(false);
@@ -4021,6 +4040,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initRoutines();
   initFocusMode();
   initTodayView();
+  initTodayAdd();
   initMobileNav();
   initUnits();
   initAddHabit();
