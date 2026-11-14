@@ -532,6 +532,7 @@
     "Phân tích & dữ liệu": "Analytics & data",
     "Nhập số km": "Enter distance in km",
     "Nhập số phút": "Enter minutes",
+    "Thao tác": "Actions",
   };
 
   const zh = {
@@ -1056,6 +1057,7 @@
     "Phân tích & dữ liệu": "分析与数据",
     "Nhập số km": "请输入公里数",
     "Nhập số phút": "请输入分钟数",
+    "Thao tác": "操作",
   };
 
   function detectLanguage() {

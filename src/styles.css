@@ -1214,6 +1214,19 @@ body.sheet-open { overflow: hidden; }
 .sheet-body .field[hidden] { display: none; }
 .sheet-actions { display: flex; gap: 8px; margin-top: 14px; }
 .sheet-actions .btn { flex: 1; }
+.menu-sheet { max-width: 420px; }
+.menu-actions { display: flex; flex-direction: column; gap: 8px; }
+.menu-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 12px; border: 1px solid var(--line-strong); border-radius: 10px;
+  background: transparent; color: var(--ink); font: inherit; font-size: 13px;
+  font-weight: 700; cursor: pointer; text-align: left;
+}
+.menu-btn .menu-ico { width: 22px; text-align: center; font-size: 16px; }
+.menu-btn.danger { color: #a11; border-color: #d9b3b3; }
+.today-more { font-size: 16px; line-height: 1; font-weight: 800; }
+[data-theme="dark"] .menu-btn { border-color: #33333a; }
+[data-theme="dark"] .menu-btn.danger { color: #ff8a80; border-color: #5a2a2a; }
 [data-theme="dark"] .sheet { background: #0d0d10; }
 [data-theme="dark"] .sheet-body .field input { background: #17171b; color: var(--ink); border-color: #33333a; }
 

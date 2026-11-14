@@ -1684,6 +1684,68 @@ function initLogSheet() {
   });
 }
 
+let todayMenuHabitId = null;
+
+function openTodayMenu(habitId) {
+  if (!state.data) return;
+  const habit = habitById(state.data).get(Number(habitId));
+  if (!habit) return;
+  todayMenuHabitId = habit.id;
+  const title = $("#todayMenuTitle");
+  if (title) title.textContent = `${habit.emoji ? `${habit.emoji} ` : ""}${habit.name}`;
+  const menu = $("#todayMenu");
+  if (menu) menu.hidden = false;
+  document.body.classList.add("sheet-open");
+}
+
+function closeTodayMenu() {
+  const menu = $("#todayMenu");
+  if (menu) menu.hidden = true;
+  document.body.classList.remove("sheet-open");
+  todayMenuHabitId = null;
+}
+
+function editTodayHabit() {
+  if (!state.data || !todayMenuHabitId) return;
+  const habit = habitById(state.data).get(todayMenuHabitId);
+  closeTodayMenu();
+  if (!habit) return;
+  setView("month");
+  openHabitForm(habit);
+  setTimeout(() => {
+    document.querySelector(".grid-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 80);
+}
+
+async function deleteTodayHabit() {
+  if (!state.data || !todayMenuHabitId) return;
+  const habit = habitById(state.data).get(todayMenuHabitId);
+  if (!habit) return;
+  if (!confirmText(t("Xoá bài tập này và toàn bộ lịch sử của nó?"))) return;
+  try {
+    await post("/api/habits/delete", { id: habit.id });
+    toast(t("Đã xoá bài tập"));
+    closeTodayMenu();
+    await load();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function initTodayMenu() {
+  const menu = $("#todayMenu");
+  if (!menu) return;
+  $("#todayMenuClose").addEventListener("click", closeTodayMenu);
+  $("#todayMenuEdit").addEventListener("click", editTodayHabit);
+  $("#todayMenuDelete").addEventListener("click", deleteTodayHabit);
+  menu.addEventListener("click", (event) => {
+    if (event.target === menu) closeTodayMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) closeTodayMenu();
+  });
+}
+
 function setView(view) {
   const next = view === "today" ? "today" : "month";
   if (next === currentView) return;
@@ -1797,6 +1859,7 @@ function renderTodayView(d) {
         <div class="today-actions">
           ${restButton}
           <button class="today-mini" type="button" data-today-log="${habit.id}" title="${esc(t("Ghi chi tiết bài này"))}" aria-label="${esc(t("Log {name}", { name: habit.name }))}">${esc(t("Log"))}</button>
+          <button class="today-mini today-more" type="button" data-today-menu="${habit.id}" title="${esc(t("Thao tác"))}" aria-label="${esc(t("Thao tác"))}">⋯</button>
         </div>
       </li>`;
     })
@@ -1877,6 +1940,12 @@ function initTodayView() {
         toggle.disabled = false;
         toast(error.message);
       }
+      return;
+    }
+
+    const menuButton = event.target.closest("[data-today-menu]");
+    if (menuButton) {
+      openTodayMenu(Number(menuButton.dataset.todayMenu));
       return;
     }
 
@@ -4304,6 +4373,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initMobileMore();
   initKeyboardNav();
   initLogSheet();
+  initTodayMenu();
   initUnits();
   initAddHabit();
   initWellness();

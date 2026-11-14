@@ -575,6 +575,25 @@
       </div>
     </div>
 
+    <div class="sheet-backdrop" id="todayMenu" hidden>
+      <div class="sheet menu-sheet" role="dialog" aria-modal="true" aria-labelledby="todayMenuTitle">
+        <div class="sheet-head">
+          <h2 id="todayMenuTitle"></h2>
+          <button class="sheet-close" id="todayMenuClose" type="button" data-i18n-aria-label="Đóng" aria-label="Đóng">×</button>
+        </div>
+        <div class="menu-actions">
+          <button class="menu-btn" id="todayMenuEdit" type="button">
+            <span class="menu-ico">✎</span>
+            <span data-i18n="Sửa bài tập">Sửa bài tập</span>
+          </button>
+          <button class="menu-btn danger" id="todayMenuDelete" type="button">
+            <span class="menu-ico">×</span>
+            <span data-i18n="Xoá bài tập">Xoá bài tập</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="sheet-backdrop" id="logSheet" hidden>
       <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="logSheetTitle">
         <div class="sheet-head">
