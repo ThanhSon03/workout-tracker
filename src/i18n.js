@@ -527,6 +527,11 @@
     "🏋️ Tạ": "🏋️ Weights",
     "🚴 Cardio": "🚴 Cardio",
     "🏃 Chạy bộ": "🏃 Running",
+    "Tuần này": "This week",
+    "Cả tháng": "Full month",
+    "Phân tích & dữ liệu": "Analytics & data",
+    "Nhập số km": "Enter distance in km",
+    "Nhập số phút": "Enter minutes",
   };
 
   const zh = {
@@ -1046,6 +1051,11 @@
     "🏋️ Tạ": "🏋️ 力量",
     "🚴 Cardio": "🚴 有氧",
     "🏃 Chạy bộ": "🏃 跑步",
+    "Tuần này": "本周",
+    "Cả tháng": "全月",
+    "Phân tích & dữ liệu": "分析与数据",
+    "Nhập số km": "请输入公里数",
+    "Nhập số phút": "请输入分钟数",
   };
 
   function detectLanguage() {

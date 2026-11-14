@@ -358,12 +358,16 @@ function renderGrid(d) {
   );
   const skips = new Map((d.skips || []).map((row) => [row.day, row.reason]));
   const today = d.today;
+  const currentWeekIndex = d.weeks.findIndex((week) =>
+    week.days.some((day) => day.day === today)
+  );
 
-  const cellClasses = (day, week) => {
+  const cellClasses = (day, week, weekIndex) => {
     const classes = [];
     if (day === today) classes.push("today-col");
     if (skips.has(day)) classes.push("skipped-col");
     if (week && week.deload) classes.push("deload-col");
+    if (weekIndex === currentWeekIndex) classes.push("week-current");
     return classes.join(" ");
   };
 
@@ -390,8 +394,8 @@ function renderGrid(d) {
 
   let html = "<thead><tr>";
   html += `<th class="corner" rowspan="3">${esc(t("Bài tập"))}</th>`;
-  d.weeks.forEach((week) => {
-    html += `<th class="week-head${week.deload ? " is-deload" : ""}" colspan="${week.days.length}">
+  d.weeks.forEach((week, wi) => {
+    html += `<th class="week-head${week.deload ? " is-deload" : ""}${wi === currentWeekIndex ? " week-current" : ""}" colspan="${week.days.length}">
       <div class="week-head-inner">
         <span>${esc(gridWeekLabel(week.index))}</span>
         <button class="deload-toggle${week.deload ? " on" : ""}" type="button" data-week-deload="${week.monday}" title="${week.deload ? t("Bỏ đánh dấu deload") : t("Đánh dấu tuần này là deload")}" aria-pressed="${Boolean(week.deload)}">${week.deload ? "DELOAD" : "deload"}</button>
@@ -399,15 +403,15 @@ function renderGrid(d) {
     </th>`;
   });
   html += "</tr><tr>";
-  d.weeks.forEach((week) => {
+  d.weeks.forEach((week, wi) => {
     week.days.forEach((day) => {
-      html += `<th class="dow">${esc(GRID_DAY_LABELS[(new Date(`${day.day}T00:00:00`).getDay() + 6) % 7])}</th>`;
+      html += `<th class="dow${wi === currentWeekIndex ? " week-current" : ""}">${esc(GRID_DAY_LABELS[(new Date(`${day.day}T00:00:00`).getDay() + 6) % 7])}</th>`;
     });
   });
   html += "</tr><tr>";
-  d.weeks.forEach((week) => {
+  d.weeks.forEach((week, wi) => {
     week.days.forEach((day) => {
-      html += `<th class="daynum${day.day === d.today ? " today" : ""}">${day.num}</th>`;
+      html += `<th class="daynum${day.day === d.today ? " today" : ""}${wi === currentWeekIndex ? " week-current" : ""}">${day.num}</th>`;
     });
   });
   html += "</tr></thead><tbody>";
@@ -418,7 +422,7 @@ function renderGrid(d) {
 
   // Hàng "Ngày nghỉ": đánh dấu cả ngày không tính vào % và không đứt chuỗi.
   html += `<tr class="rest-row"><td class="habit-name"><span class="emoji">☾</span><span class="label">${esc(t("Ngày nghỉ"))}</span></td>`;
-  d.weeks.forEach((week) => {
+  d.weeks.forEach((week, wi) => {
     week.days.forEach((day) => {
       const isSkipped = skips.has(day.day);
       const isFuture = day.day > today;
@@ -430,7 +434,7 @@ function renderGrid(d) {
         : isFuture
           ? t("Chưa tới ngày này")
           : t("Đánh dấu ngày nghỉ");
-      html += `<td class="${cellClasses(day.day, week)}"><button class="skip${isSkipped ? " on" : ""}" data-skip="${day.day}" title="${esc(title)}" aria-pressed="${isSkipped}"${isFuture ? " disabled" : ""}>☾</button></td>`;
+      html += `<td class="${cellClasses(day.day, week, wi)}"><button class="skip${isSkipped ? " on" : ""}" data-skip="${day.day}" title="${esc(title)}" aria-pressed="${isSkipped}"${isFuture ? " disabled" : ""}>☾</button></td>`;
     });
   });
   html += "</tr>";
@@ -442,7 +446,7 @@ function renderGrid(d) {
     html += `<button class="edit" data-edit="${habit.id}" title="${esc(t("Sửa bài tập"))}" aria-label="${esc(t("Sửa {name}", { name: habit.name }))}">✎</button>`;
     html += `<button class="del" data-del="${habit.id}" title="${esc(t("Xoá bài tập"))}" aria-label="${esc(t("Xoá {name}", { name: habit.name }))}">×</button>`;
     html += `<span class="emoji">${esc(habit.emoji)}</span><span class="label">${esc(habit.name)}</span></td>`;
-    d.weeks.forEach((week) => {
+    d.weeks.forEach((week, wi) => {
       week.days.forEach((day) => {
         const isDone = done.has(`${habit.id}|${day.day}`);
         const log = logByCell.get(`${habit.id}|${day.day}`);
@@ -454,7 +458,7 @@ function renderGrid(d) {
         if (isDone) checkClasses.push("done");
         if (isDone && !scheduled) checkClasses.push("extra");
         if (log) checkClasses.push("logged");
-        const classes = [cellClasses(day.day, week), scheduled ? "" : "off"].filter(Boolean).join(" ");
+        const classes = [cellClasses(day.day, week, wi), scheduled ? "" : "off"].filter(Boolean).join(" ");
         let title = isSkipped
           ? t("Ngày nghỉ")
           : isFuture
@@ -1184,7 +1188,7 @@ function renderBodyChart(entries) {
     const cx = x(index).toFixed(1);
     const cy = y(weightFromKg(row.weight_kg)).toFixed(1);
     const title = `${formatDay(row.day)} · ${fmtWeight(row.weight_kg)}`;
-    parts.push(`<circle class="dot-body" cx="${cx}" cy="${cy}" r="2.6"><title>${esc(title)}</title></circle>`);
+    parts.push(`<circle class="dot-body" data-label="${esc(title)}" cx="${cx}" cy="${cy}" r="2.6"><title>${esc(title)}</title></circle>`);
     if (index === 0 || index === points.length - 1 || index === Math.floor((points.length - 1) / 2)) {
       parts.push(
         `<text class="axis" x="${cx}" y="${H - 6}" text-anchor="middle">${esc(
@@ -1318,6 +1322,11 @@ function initBody() {
     } catch (error) {
       toast(error.message);
     }
+  });
+
+  $("#bodyChart").addEventListener("click", (event) => {
+    const dot = event.target.closest("circle[data-label]");
+    if (dot) toast(dot.dataset.label);
   });
 
   $("#bodyList").addEventListener("click", async (event) => {
@@ -1463,6 +1472,218 @@ function initMobileNav() {
   syncBottomNav();
 }
 
+function tapFeedback() {
+  if (!navigator.vibrate) return;
+  try {
+    navigator.vibrate(8);
+  } catch {
+    /* ignore */
+  }
+}
+
+function initGridWeek() {
+  const button = $("#gridWeekToggle");
+  if (!button) return;
+  const key = "wt-grid-week";
+  let enabled = true;
+  try {
+    const raw = localStorage.getItem(key);
+    enabled = raw === null ? true : raw === "1";
+  } catch {
+    /* ignore */
+  }
+  const apply = (value) => {
+    document.body.classList.toggle("week-view", value);
+    button.setAttribute("aria-pressed", value ? "true" : "false");
+    button.textContent = value ? t("Tuần này") : t("Cả tháng");
+    try {
+      localStorage.setItem(key, value ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  };
+  apply(enabled);
+  button.addEventListener("click", () => {
+    apply(!document.body.classList.contains("week-view"));
+    const scroll = document.querySelector(".grid-scroll");
+    if (scroll) scroll.scrollTo({ left: 0, behavior: "smooth" });
+  });
+}
+
+function initMobileMore() {
+  const button = $("#mobileMore");
+  if (!button) return;
+  const key = "wt-more-open";
+  let open = false;
+  try {
+    open = localStorage.getItem(key) === "1";
+  } catch {
+    /* ignore */
+  }
+  const apply = (value) => {
+    document.body.classList.toggle("more-open", value);
+    button.setAttribute("aria-expanded", value ? "true" : "false");
+  };
+  apply(open);
+  button.addEventListener("click", () => {
+    const next = !document.body.classList.contains("more-open");
+    apply(next);
+    try {
+      localStorage.setItem(key, next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    if (next) {
+      document.querySelector(".analytics")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+}
+
+function initKeyboardNav() {
+  const isField = (node) => node && node.matches && node.matches("input, select, textarea");
+  let timer = null;
+  document.addEventListener("focusin", (event) => {
+    if (isField(event.target)) document.body.classList.add("input-focus");
+  });
+  document.addEventListener("focusout", () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      if (!isField(document.activeElement)) document.body.classList.remove("input-focus");
+    }, 120);
+  });
+}
+
+let sheetHabitId = null;
+let sheetDay = null;
+let sheetLogNote = "";
+
+function openLogSheet(habitId, day) {
+  if (!state.data) return;
+  const habit = habitById(state.data).get(Number(habitId));
+  if (!habit) return;
+  const kind = habitKind(habit);
+  const log = (state.data.logs || []).find(
+    (row) => row.habit_id === habit.id && row.day === day
+  );
+  sheetHabitId = habit.id;
+  sheetDay = day;
+  sheetLogNote = log ? log.note || "" : "";
+
+  const title = $("#logSheetTitle");
+  if (title) {
+    title.textContent = `${habit.emoji ? `${habit.emoji} ` : ""}${habit.name} · ${formatDay(day)}`;
+  }
+  const set = (selector, value) => {
+    const node = $(selector);
+    if (node) node.value = value == null ? "" : value;
+  };
+  set("#sheetSets", log ? log.sets : 3);
+  set("#sheetReps", log ? log.reps : 8);
+  set("#sheetWeight", log && log.weight != null ? displayWeight(log.weight) : "");
+  set("#sheetKm", log && log.distance_km != null ? displayDistance(log.distance_km) : "");
+  set("#sheetMinutes", log && log.duration_min != null ? log.duration_min : "");
+  set("#sheetRpe", log && log.rpe != null ? log.rpe : "");
+
+  const strength = kind === "strength";
+  const cardio = kind === "cardio";
+  document.querySelectorAll("#logSheet .sheet-strength").forEach((node) => {
+    node.hidden = !strength;
+  });
+  document.querySelectorAll("#logSheet .sheet-cardio").forEach((node) => {
+    node.hidden = !cardio;
+  });
+  document.querySelectorAll("#logSheet .sheet-duration").forEach((node) => {
+    node.hidden = strength;
+  });
+  const weightLabel = $("#sheetWeightLabel");
+  if (weightLabel) weightLabel.textContent = imperial() ? "Lb" : "Kg";
+  const kmLabel = $("#sheetKmLabel");
+  if (kmLabel) kmLabel.textContent = imperial() ? "Mi" : "Km";
+
+  const sheet = $("#logSheet");
+  if (sheet) sheet.hidden = false;
+  document.body.classList.add("sheet-open");
+  setTimeout(() => {
+    const target = strength ? $("#sheetSets") : $("#sheetMinutes");
+    if (target) target.focus();
+  }, 60);
+}
+
+function closeLogSheet() {
+  const sheet = $("#logSheet");
+  if (sheet) sheet.hidden = true;
+  document.body.classList.remove("sheet-open");
+  sheetHabitId = null;
+  sheetDay = null;
+}
+
+async function saveLogSheet() {
+  if (!state.data || !sheetHabitId) return;
+  const habit = habitById(state.data).get(sheetHabitId);
+  if (!habit) return;
+  const kind = habitKind(habit);
+  const value = (selector) => {
+    const node = $(selector);
+    const raw = node ? String(node.value).trim() : "";
+    return raw === "" ? null : Number(raw);
+  };
+  const body = {
+    habit_id: habit.id,
+    day: sheetDay,
+    sets: 0,
+    reps: 0,
+    weight: 0,
+    distance_km: null,
+    duration_min: null,
+    rpe: value("#sheetRpe"),
+    note: sheetLogNote,
+  };
+  if (kind === "cardio") {
+    body.distance_km = distanceToKm(value("#sheetKm") || 0);
+    body.duration_min = value("#sheetMinutes") || 0;
+    if (!(body.distance_km > 0)) {
+      toast(t("Nhập số km"));
+      return;
+    }
+    if (!(body.duration_min > 0)) {
+      toast(t("Nhập số phút"));
+      return;
+    }
+  } else if (kind === "mobility") {
+    body.duration_min = value("#sheetMinutes") || 0;
+    if (!(body.duration_min > 0)) {
+      toast(t("Nhập số phút"));
+      return;
+    }
+  } else {
+    body.sets = Math.max(1, value("#sheetSets") || 1);
+    body.reps = Math.max(1, value("#sheetReps") || 1);
+    body.weight = weightToKg(value("#sheetWeight") || 0);
+  }
+  try {
+    await post("/api/logs", body);
+    toast(t("Đã lưu buổi tập"));
+    closeLogSheet();
+    await load();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function initLogSheet() {
+  const sheet = $("#logSheet");
+  if (!sheet) return;
+  $("#logSheetClose").addEventListener("click", closeLogSheet);
+  $("#logSheetCancel").addEventListener("click", closeLogSheet);
+  $("#logSheetSave").addEventListener("click", saveLogSheet);
+  sheet.addEventListener("click", (event) => {
+    if (event.target === sheet) closeLogSheet();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !sheet.hidden) closeLogSheet();
+  });
+}
+
 function setView(view) {
   const next = view === "today" ? "today" : "month";
   if (next === currentView) return;
@@ -1536,6 +1757,12 @@ function renderTodayView(d) {
     count.textContent = habits.length
       ? t("{done}/{total} bài", { done: doneCount, total: habits.length })
       : "";
+  }
+  const badge = $("#todayBadge");
+  if (badge) {
+    const remaining = habits.length - doneCount;
+    badge.hidden = remaining <= 0;
+    badge.textContent = remaining > 99 ? "99+" : String(remaining);
   }
 
   const list = $("#todayList");
@@ -1642,6 +1869,7 @@ function initTodayView() {
       const habitId = Number(toggle.dataset.todayToggle);
       const day = state.data.today;
       toggle.disabled = true;
+      tapFeedback();
       try {
         await post("/api/toggle", { habit_id: habitId, day });
         await load();
@@ -1656,8 +1884,7 @@ function initTodayView() {
     if (log) {
       const habitId = Number(log.dataset.todayLog);
       const day = state.data?.today || localISODate();
-      setView("month");
-      prefillLog(habitId, day);
+      openLogSheet(habitId, day);
     }
   });
 }
@@ -1751,6 +1978,10 @@ function updateUnitControls() {
   if (bodyGoalLabel) bodyGoalLabel.textContent = `${t("Cân nặng mục tiêu")} (${weightUnit()})`;
   const bodyHeightLabel = $("#bodyHeightLabel");
   if (bodyHeightLabel) bodyHeightLabel.textContent = `${t("Chiều cao")} (${lengthUnit()})`;
+  const sheetWeightLabel = $("#sheetWeightLabel");
+  if (sheetWeightLabel) sheetWeightLabel.textContent = imperial() ? "Lb" : "Kg";
+  const sheetKmLabel = $("#sheetKmLabel");
+  if (sheetKmLabel) sheetKmLabel.textContent = imperial() ? "Mi" : "Km";
   for (const [, label, id] of BODY_MEASURES) {
     const node = $(`#${id}Label`);
     if (node) node.textContent = `${t(label)} (${lengthUnit()})`;
@@ -3102,6 +3333,18 @@ function renderRestUi(remaining, duration, running) {
   document.querySelectorAll("[data-rest-hint]").forEach((node) => {
     node.textContent = hint;
   });
+
+  const fab = $("#restFab");
+  if (fab) {
+    fab.hidden = !running;
+    if (running) {
+      document.querySelectorAll("[data-rest-fab-time]").forEach((node) => {
+        node.textContent = fmtRest(remaining);
+      });
+      const label = document.querySelector("[data-rest-fab-label]");
+      if (label) label.textContent = restState.label || t("Đang nghỉ");
+    }
+  }
 }
 
 function stopRestTimer({ completed = false } = {}) {
@@ -3278,6 +3521,7 @@ function startRestTimer(seconds, label = "") {
   restState.label = label || "";
   restState.completed = false;
   restState.endAt = Date.now() + duration * 1000;
+  tapFeedback();
   const custom = $("#restCustom");
   if (custom) custom.value = duration;
   renderRestUi(duration, duration, true);
@@ -3294,6 +3538,20 @@ function initRest() {
     startRestTimer(custom > 0 ? custom : restState.duration);
   });
   $("#restStopBtn").addEventListener("click", () => stopRestTimer());
+
+  const restFab = $("#restFab");
+  if (restFab) {
+    restFab.addEventListener("click", (event) => {
+      if (event.target.closest("[data-rest-fab-stop]")) {
+        stopRestTimer();
+        return;
+      }
+      setView("today");
+      document
+        .querySelector("#todayView .today-rest")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
   $("#restPresets").addEventListener("click", (event) => {
     const btn = event.target.closest("[data-rest-start]");
     if (btn) {
@@ -4042,6 +4300,10 @@ document.addEventListener("DOMContentLoaded", () => {
   initTodayView();
   initTodayAdd();
   initMobileNav();
+  initGridWeek();
+  initMobileMore();
+  initKeyboardNav();
+  initLogSheet();
   initUnits();
   initAddHabit();
   initWellness();
